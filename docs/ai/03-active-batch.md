@@ -1,5 +1,69 @@
 # Sakurava Active Batch
 
+## Video Player Middle Architecture and Current Corrective Gates — 2026-09-13
+
+This is the newest Active Batch authority. Older Video Player corrective
+contracts below remain historical where they conflict with this section.
+
+recorded_repository_head: bdc0289439924d9d4182b465798c257068f415ec
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+current_technical_application_permissions: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: MIDDLE_ARCHITECTURE_RECONCILED_CONTROLS_BLOCKED_BY_WEBVIEW_STARTUP
+middle_0_534_status: CURRENT_PARTIAL_CALIBRATION_NOT_ROOT_FIX
+middle_architecture_direction: NARROW_MPV_GEOMETRY_BOUNDARY_EXTENSION_REQUIRED
+middle_engine_implementation_authorized: false
+subtitle_containment_contract: ANCHOR_BOUNDED_ONLY
+subtitle_regions: TOP_0_TO_ONE_THIRD_MIDDLE_ONE_THIRD_TO_TWO_THIRDS_BOTTOM_TWO_THIRDS_TO_ONE
+subtitle_control_safe_area: TOP_0_MIDDLE_0_BOTTOM_DYNAMIC_PRESERVED_SOURCE_ELIGIBLE_PRESERVED
+vertical_adjustment_direction: POSITIVE_UPWARD_NEGATIVE_DOWNWARD
+first_open_controls_root_cause: UNKNOWN
+webview_startup_blocker: WEBVIEW_CONTROLLER_BEGIN_FAILED_HRESULT_0X8007139F_REPRODUCED
+next_technical_action: VIDEO_PLAYER_WEBVIEW_COMPOSITION_CONTROLLER_STARTUP_ROOT_CAUSE_DIAGNOSTIC
+next_technical_action_status: PENDING_SEPARATE_APPROVAL_AFTER_PROJECT_CHATGPT_RESULT_REVIEW
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+`PROVEN_BY_STATIC_SOURCE` establishes that explicit movable Middle positioning
+controls renderer line/bottom-alignment semantics rather than the center of the
+final rendered subtitle block. Different rendered block heights therefore
+cannot all be visually centered by one fixed `sub-pos`; the current neutral
+value `0.534` remains a partial visual calibration only. The accepted future
+architecture direction is a separately gated read-only mpv/libmpv boundary
+that exposes authoritative subtitle bounds already calculated by mpv/libass.
+mpv/libass remains the single renderer; duplicate parsing/rendering, ASS
+rewriting, screenshot heuristics, and OCR are prohibited. No engine mutation is
+authorized here.
+
+`OBSERVED_BY_OPERATOR` establishes that Main can first open with timeline-only
+controls and reveal the existing full controls after one resize. The product
+contract remains `MAIN_TIMELINE_ONLY_PRESENTATION_NOT_A_VALID_PRODUCT_MODE`,
+`FIRST_OPEN_CONTROLS_VISIBLE_FULL_CONTROLS_REQUIRED`, and
+`PIP_COMPACT_PRESENTATION_PRESERVED`. The exact controls owner remains
+`UNKNOWN`: two `MEASURED` clean disposable attempts failed before Player DOM
+creation at `CreateCoreWebView2CompositionController` with HRESULT
+`0x8007139F`. That reproducible startup blocker is not classified as the
+controls root cause. The next separately approved technical prerequisite is
+the bounded WebView CompositionController startup diagnostic; controls mutation
+must wait until startup succeeds and the same-session first-open/resize trace
+can run.
+
+The accepted subtitle regions, Vertical Adjustment direction, bottom-only
+dynamic control safe area, Source behavior, appearance customization,
+hard-positioned ASS limitation, shared mpv composition architecture, and one
+authoritative Main/PiP session remain unchanged. Contact Sheet final material
+refinement remains pending. This documentation action authorizes no source,
+engine, runtime, test/build, Contact Sheet, Objective 3, Batch 42.9, staging,
+commit, or push work.
+
 ## Video Player Manual Smoke 1 Replacement Contract — 2026-09-09
 
 This is the newest Active Batch authority. Older Video Player corrective

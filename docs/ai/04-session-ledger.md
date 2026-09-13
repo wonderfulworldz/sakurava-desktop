@@ -73,6 +73,55 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-13 — Video Player Middle Architecture and Current Gates Reconciled
+
+date: 2026-09-13
+session_type: PROJECT_OS_VIDEO_PLAYER_MIDDLE_ARCHITECTURE_AND_CURRENT_CORRECTIVE_GATES_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_ARCHITECTURE_RECONCILIATION
+project_os_update_timing: PROJECT_OS_UPDATE_NOW
+recorded_repository_head: bdc0289439924d9d4182b465798c257068f415ec
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+recorded_tracked_wip: 42_MODIFIED_PATHS_27_VIDEO_PLAYER_15_UNRELATED_PROTECTED
+active_application_batch: NONE
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+middle_0_534_status: CURRENT_PARTIAL_CALIBRATION_NOT_ROOT_FIX
+middle_architecture_direction: NARROW_MPV_GEOMETRY_BOUNDARY_EXTENSION_REQUIRED
+middle_engine_implementation_authorized: false
+first_open_controls_root_cause: UNKNOWN
+webview_startup_blocker: WEBVIEW_CONTROLLER_BEGIN_FAILED_HRESULT_0X8007139F_REPRODUCED
+next_technical_action: VIDEO_PLAYER_WEBVIEW_COMPOSITION_CONTROLLER_STARTUP_ROOT_CAUSE_DIAGNOSTIC
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_THEN_SEPARATE_WEBVIEW_COMPOSITION_CONTROLLER_STARTUP_DIAGNOSTIC_APPROVAL
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+`PROVEN_BY_STATIC_SOURCE` establishes that current movable Middle positioning
+controls renderer line/bottom-alignment semantics, so one fixed `sub-pos`
+cannot universally center final rendered blocks of different heights. The
+current `0.534` neutral remains a partial calibration. The accepted future
+direction is a narrowly scoped read-only mpv/libmpv boundary exposing
+authoritative subtitle bounds already computed by mpv/libass, without another
+parser, renderer, ASS rewrite, screenshot heuristic, or OCR. Existing semantic
+positioning, Vertical Adjustment, appearance behavior, and single-renderer
+architecture remain authoritative. Engine mutation requires later explicit
+approval.
+
+`OBSERVED_BY_OPERATOR` first-open Main timeline-only behavior remains invalid;
+visible Main controls must be full from first open, while PiP alone is compact.
+The controls owner is still `UNKNOWN`. Two `MEASURED` clean disposable starts
+failed before Player DOM creation at `CreateCoreWebView2CompositionController`
+with HRESULT `0x8007139F`. This is a reproducible diagnostic blocker, not a
+proven controls cause. The next separately gated technical action is a bounded
+WebView CompositionController startup root-cause diagnostic; controls tracing
+and correction wait for reliable startup. Contact Sheet final material
+refinement remains pending. No technical execution, Objective 3, Batch 42.9,
+staging, commit, or push is authorized by this reconciliation.
+
+---
+
 ## 2026-09-09 — Meaningful-Boundary Project OS Maintenance Adopted
 
 date: 2026-09-09
@@ -220,39 +269,6 @@ session-only. The next action is one `Sol` / `High` / `AUDIT_ONLY` causal audit
 of transport visibility, Main resize/presentation, subtitle coordinates, and
 remember/session hydration. No source rework, Objective 3, or Batch 42.9 is
 authorized by this documentation reconciliation.
-
----
-
-## 2026-09-02 — Video Player Latest Corrective Contract Reconciled
-
-date: 2026-09-02
-session_type: PROJECT_OS_VIDEO_PLAYER_CORRECTIVE_CONTRACT_RECONCILIATION
-operator_decision: EXPLICIT_DOCUMENTATION_ONLY_LATEST_PRODUCT_CONTRACT_APPROVAL
-recorded_application_baseline: db0879e67ce649ea5d48f9e4e4e6ac42acaf14a1
-corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
-corrective_gate_status: PARTIAL_IMPLEMENTATION_WIP_PENDING_LATEST_OPERATOR_CORRECTIONS
-corrective_gate_protected_wip_count: 23
-video_player_objective_1: COMPLETE_AND_ACCEPTED
-video_player_objective_2: COMPLETE_AND_ACCEPTED
-video_player_objective_3: NOT_STARTED
-active_application_batch: NONE
-active_technical_video_player_stage: NONE
-technical_permissions: false
-batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
-next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_SEPARATE_CORRECTIVE_GATE_AUTHORIZATION
-
-`OBSERVED_BY_OPERATOR` confirms immediate shortcut operation on first Player
-open and subtitle drag/drop. It also records the remaining auto-hide,
-subtitle-safe-area, Subtitle Appearance, theme, PiP control, windowed padding,
-and Contact Sheet UX corrections. The current auto-hide contract is 1500 ms;
-Subtitle Appearance uses the Sakurava contextual-settings drawer standard; all
-Player-owned surfaces use the application light/dark/system preference; and
-Contact Sheet opens idle at 4 x 8 before explicit Generate Preview.
-
-`CONTACT_SHEET_EXTRACTION_FAILED` / `MPV_COMMAND_FAILED:-12` remains unresolved
-`OBSERVED_BY_OPERATOR` evidence. A later technical continuation must first
-identify its exact command and runtime context. No source, test, build, runtime,
-or application Git delivery occurred in this documentation reconciliation.
 
 ---
 

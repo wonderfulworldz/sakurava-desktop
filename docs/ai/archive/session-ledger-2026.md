@@ -1,5 +1,38 @@
 # Sakurava Session Ledger Archive — 2026
 
+## 2026-09-02 — Video Player Latest Corrective Contract Reconciled
+
+date: 2026-09-02
+session_type: PROJECT_OS_VIDEO_PLAYER_CORRECTIVE_CONTRACT_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_LATEST_PRODUCT_CONTRACT_APPROVAL
+recorded_application_baseline: db0879e67ce649ea5d48f9e4e4e6ac42acaf14a1
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: PARTIAL_IMPLEMENTATION_WIP_PENDING_LATEST_OPERATOR_CORRECTIONS
+corrective_gate_protected_wip_count: 23
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_SEPARATE_CORRECTIVE_GATE_AUTHORIZATION
+
+`OBSERVED_BY_OPERATOR` confirms immediate shortcut operation on first Player
+open and subtitle drag/drop. It also records the remaining auto-hide,
+subtitle-safe-area, Subtitle Appearance, theme, PiP control, windowed padding,
+and Contact Sheet UX corrections. The current auto-hide contract is 1500 ms;
+Subtitle Appearance uses the Sakurava contextual-settings drawer standard; all
+Player-owned surfaces use the application light/dark/system preference; and
+Contact Sheet opens idle at 4 x 8 before explicit Generate Preview.
+
+`CONTACT_SHEET_EXTRACTION_FAILED` / `MPV_COMMAND_FAILED:-12` remains unresolved
+`OBSERVED_BY_OPERATOR` evidence. A later technical continuation must first
+identify its exact command and runtime context. No source, test, build, runtime,
+or application Git delivery occurred in this documentation reconciliation.
+
+---
+
 ## 2026-09-01 — Video Player Operator Feedback Reconciled Before Objective 3
 
 date: 2026-09-01

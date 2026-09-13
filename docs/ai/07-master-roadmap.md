@@ -1,5 +1,52 @@
 # Sakurava Master Roadmap
 
+## Video Player Middle Architecture and Corrective-Gate Roadmap — 2026-09-13
+
+This is the newest roadmap authority for the open pre-Objective-3 corrective
+package. Older conflicting corrective sequencing below is historical.
+
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_stage_4: DOES_NOT_EXIST
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: MIDDLE_ARCHITECTURE_RECONCILED_CONTROLS_BLOCKED_BY_WEBVIEW_STARTUP
+middle_0_534_status: CURRENT_PARTIAL_CALIBRATION_NOT_ROOT_FIX
+middle_architecture_direction: NARROW_MPV_GEOMETRY_BOUNDARY_EXTENSION_REQUIRED
+middle_engine_implementation_authorized: false
+webview_startup_blocker: WEBVIEW_CONTROLLER_BEGIN_FAILED_HRESULT_0X8007139F_REPRODUCED
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_technical_action: VIDEO_PLAYER_WEBVIEW_COMPOSITION_CONTROLLER_STARTUP_ROOT_CAUSE_DIAGNOSTIC
+next_technical_action_status: PENDING_SEPARATE_APPROVAL_AFTER_PROJECT_CHATGPT_RESULT_REVIEW
+
+The Middle subtitle root-cause direction is now architectural rather than
+another scalar calibration. `MIDDLE_NEUTRAL_VISUAL_ANCHOR = 0.534` remains a
+current partial calibration; one fixed `sub-pos` cannot center authoritative
+rendered blocks of differing height. A future separately approved narrow,
+read-only mpv/libmpv geometry boundary may expose final bounds already computed
+by mpv/libass. mpv/libass remains the sole renderer, and Sakurava must not add a
+duplicate parser/renderer, destructive ASS rewriting, screenshot heuristics, or
+OCR. Existing Player-level semantic positioning, Vertical Adjustment,
+appearance behavior, accepted hard-positioned ASS limitation, and one-session
+media architecture remain intact. The engine-boundary implementation is
+`NOT_AUTHORIZED` until Project ChatGPT Result Review and separate approval.
+
+Main controls retain the product contract `FIRST OPEN + CONTROLS VISIBLE = FULL
+CONTROLS`; timeline-only is not a valid Main mode and PiP remains the only
+compact presentation. The exact controls root cause remains `UNKNOWN` because
+two clean disposable starts failed before the Player DOM at the reproducible
+WebView2 CompositionController HRESULT `0x8007139F` boundary. The immediate
+roadmap prerequisite is a separately approved
+`VIDEO_PLAYER_WEBVIEW_COMPOSITION_CONTROLLER_STARTUP_ROOT_CAUSE_DIAGNOSTIC`.
+Only after reliable startup may the same-session first-open/resize controls
+trace resume. The blocker must not be conflated with the controls root cause.
+
+Contact Sheet final material-only refinement remains pending within the current
+corrective package. Objective 3 remains the third and final unstarted Video
+Player objective. Batch 42.9 remains blocked through corrective completion,
+Objective 3, final operator acceptance, and later Project OS closure. This
+roadmap reconciliation grants no technical execution or Git delivery authority.
+
 ## Video Player Manual Smoke 1 Five-Item Corrective Roadmap — 2026-09-09
 
 This is the newest roadmap authority for the pre-Objective-3 corrective gate.

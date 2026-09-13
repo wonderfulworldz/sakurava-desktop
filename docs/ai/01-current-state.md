@@ -1,5 +1,70 @@
 # Sakurava Current State
 
+## Video Player Middle Architecture and Current Corrective State — 2026-09-13
+
+This is the newest current-state authority. Older Video Player corrective
+sections below remain historical where they conflict with this section.
+
+project: Sakurava Desktop
+repository: D:\sakurava-desktop
+branch: main
+recorded_head: bdc0289439924d9d4182b465798c257068f415ec
+recorded_origin_main: bdc0289439924d9d4182b465798c257068f415ec
+recorded_divergence: 0_AHEAD_0_BEHIND
+recorded_staging: NONE
+repository_state_evidence: PROVEN_BY_STATIC_SOURCE
+recorded_tracked_wip: 42_MODIFIED_PATHS_27_VIDEO_PLAYER_15_UNRELATED_PROTECTED
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+technical_application_permissions: NONE
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: MIDDLE_ARCHITECTURE_RECONCILED_CONTROLS_BLOCKED_BY_WEBVIEW_STARTUP
+middle_neutral_visual_anchor: 0.534
+middle_0_534_status: CURRENT_PARTIAL_CALIBRATION_NOT_ROOT_FIX
+fixed_middle_sub_pos_universal_visual_center: NO
+middle_architecture_direction: NARROW_MPV_GEOMETRY_BOUNDARY_EXTENSION_REQUIRED
+middle_engine_implementation_authorized: false
+subtitle_containment_contract: ANCHOR_BOUNDED_ONLY
+subtitle_regions: TOP_0_TO_ONE_THIRD_MIDDLE_ONE_THIRD_TO_TWO_THIRDS_BOTTOM_TWO_THIRDS_TO_ONE
+subtitle_control_safe_area: TOP_0_MIDDLE_0_BOTTOM_DYNAMIC_PRESERVED_SOURCE_ELIGIBLE_PRESERVED
+vertical_adjustment_direction: POSITIVE_UPWARD_NEGATIVE_DOWNWARD
+first_open_controls_root_cause: UNKNOWN
+webview_startup_blocker: WEBVIEW_CONTROLLER_BEGIN_FAILED_HRESULT_0X8007139F_REPRODUCED
+next_technical_action: VIDEO_PLAYER_WEBVIEW_COMPOSITION_CONTROLLER_STARTUP_ROOT_CAUSE_DIAGNOSTIC
+next_technical_action_status: PENDING_SEPARATE_APPROVAL_AFTER_PROJECT_CHATGPT_RESULT_REVIEW
+batch_42_9: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+
+Current `PROVEN_BY_STATIC_SOURCE` evidence shows that one fixed Middle
+`sub-pos` cannot visually center subtitle blocks of different rendered heights.
+The accepted root direction is read-only exposure of authoritative rendered
+bounds already produced by mpv/libass, while mpv/libass remains the only
+subtitle renderer. Existing Player-level semantic regions and Vertical
+Adjustment remain the product abstraction. `MIDDLE_NEUTRAL_VISUAL_ANCHOR =
+0.534` remains current WIP behavior until a separately approved root
+implementation replaces the partial calibration. No exact client property or
+mpv patch is implemented or implementation-authorized.
+
+`OBSERVED_BY_OPERATOR` Main first-open timeline-only behavior remains an open
+product defect: visible Main controls must be the existing full controls from
+first open, with PiP alone compact. Its source root cause is still `UNKNOWN`.
+Two `MEASURED` clean disposable Player starts failed earlier at
+`CreateCoreWebView2CompositionController` with HRESULT `0x8007139F`, before the
+Player DOM existed. This is a reproducible diagnostic blocker, not a proven
+controls cause. A separately approved WebView startup root-cause diagnostic is
+the next technical prerequisite; no controls correction is authorized.
+
+The corrective package remains open. Contact Sheet material refinement remains
+pending. Subtitle appearance, semantic Top/Middle/Bottom regions, positive-up
+and negative-down adjustment, bottom dynamic safe area, Source behavior,
+hard-positioned ASS limits, the accepted mpv/D3D11/DirectComposition/WebView2
+architecture, and one authoritative Main/PiP session remain preserved. No
+application, engine, runtime, test/build, staging, commit, push, Objective 3, or
+Batch 42.9 work is authorized by this reconciliation.
+
 ## Video Player Manual Smoke 1 Replacement Contract — 2026-09-09
 
 This is the newest current-state authority. Older Video Player corrective
