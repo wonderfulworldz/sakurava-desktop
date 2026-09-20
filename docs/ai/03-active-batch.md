@@ -1,5 +1,39 @@
 # Sakurava Active Batch
 
+## Video Player Waiver Closure and Batch 42.9 Gate — 2026-09-21
+
+This is the newest Active Batch authority. Older Video Player completion-gate
+wording below is historical where it conflicts with this section.
+
+recorded_repository_baseline: 4485d37d73ddee2ac04ce377eaea09f7277f600b
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+current_technical_application_permissions: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+video_player_objective_3: VIDEO_PLAYER_OBJECTIVE_3_WAIVED_BY_OPERATOR_BASED_ON_ACCEPTED_PRIOR_VERIFICATION
+video_player_objective_3_execution: NOT_EXECUTED
+video_player_objective_3_result: NOT_OBJECTIVE_3_PASS
+video_player_final_state: COMPLETE_AND_ACCEPTED_BY_OPERATOR_WITH_EXPLICIT_OBJECTIVE_3_WAIVER
+video_player_completion_gate: SATISFIED_BY_EXPLICIT_OPERATOR_CONTRACT_REPLACEMENT_AND_ACCEPTED_PRIOR_EVIDENCE
+batch_42_9_video_player_blocker: CLEARED
+batch_42_9_gate: BLOCKED_PENDING_PRE_42_9_ADDITIONAL_FEATURE_REVIEW
+batch_42_9_approved: false
+next_action: PRE_42_9_ADDITIONAL_FEATURE_REVIEW
+next_action_status: PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_APPROVAL
+
+The operator intentionally did not execute Objective 3 and does not classify it
+as PASS. The operator instead accepts final Video Player completion using the
+accepted targeted, runtime, package, and smoke evidence already on record. The
+explicit waiver replaces only the final integrated-run requirement; it does not
+rewrite evidence labels or authorize ceremonial retesting.
+
+The Video Player completion condition no longer blocks Batch 42.9. The broader
+Batch 42.9 gate remains closed because its independent additional-feature review
+has not been completed, and Batch 42.9 remains unapproved. This governance
+transaction grants no technical execution permission.
+
 ## Video Player Corrective Package Closure — 2026-09-21
 
 This is the newest Active Batch authority. Older Video Player corrective

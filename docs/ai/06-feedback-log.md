@@ -25,8 +25,25 @@ Completion evidence: `REPORTED_HISTORICAL`; desktop runtime remains `UNKNOWN`.
 Additional producers and producer-specific Retry/Cancel/action behavior remain
 separately gated and are not authorized by this resolved request.
 
+### FEEDBACK-2026-09-21-CLOSURE-TRANSACTION-EFFICIENCY — Combine Meaningful-Boundary Closure Work
+
+date: 2026-09-21
+batch: PROJECT_OS_GOVERNANCE
+type: RESOLVED_GOVERNANCE_FEEDBACK
+status: RECORDED_IN_OPERATING_CONTRACT
+evidence: OBSERVED_BY_OPERATOR
+risk: LOW
+placement: MEANINGFUL_BOUNDARY_PROJECT_OS_MAINTENANCE
+
+The operator requires final verification, Git delivery, Project OS
+reconciliation, and Brain regeneration to remain one compact closure
+transaction when safety and approval boundaries allow it. Accepted verification
+must be reused; final tests are not rerun for ceremony when no material evidence
+gap exists. The objective is fewer governance transactions without weaker
+safety, evidence, Git, Result Review, or refresh controls.
+
 ---
-last_updated: 2026-09-13
+last_updated: 2026-09-21
 
 ## Active Feedback
 

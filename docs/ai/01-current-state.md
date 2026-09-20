@@ -1,5 +1,38 @@
 # Sakurava Current State
 
+## Video Player Operator Waiver and Final Completion — 2026-09-21
+
+This is the newest current-state authority. Older Video Player completion-gate
+sections below are historical where they conflict with this section.
+
+recorded_repository_baseline: 4485d37d73ddee2ac04ce377eaea09f7277f600b
+video_player_corrective_package: COMPLETE_AND_ACCEPTED
+video_player_objective_3: VIDEO_PLAYER_OBJECTIVE_3_WAIVED_BY_OPERATOR_BASED_ON_ACCEPTED_PRIOR_VERIFICATION
+video_player_objective_3_execution: NOT_EXECUTED
+video_player_objective_3_result: NOT_OBJECTIVE_3_PASS
+video_player_final_state: COMPLETE_AND_ACCEPTED_BY_OPERATOR_WITH_EXPLICIT_OBJECTIVE_3_WAIVER
+video_player_completion_gate: SATISFIED_BY_EXPLICIT_OPERATOR_CONTRACT_REPLACEMENT_AND_ACCEPTED_PRIOR_EVIDENCE
+batch_42_9_video_player_blocker: CLEARED
+batch_42_9_overall_gate: BLOCKED_PENDING_PRE_42_9_ADDITIONAL_FEATURE_REVIEW
+batch_42_9_authorized: false
+technical_application_permissions: NONE
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_BRAIN_REFRESH_THEN_PRE_42_9_ADDITIONAL_FEATURE_REVIEW
+
+`OBSERVED_BY_OPERATOR` explicitly waives the Objective 3 final integrated
+acceptance run and accepts Video Player completion from the already accepted
+targeted tests, disposable runtime verification, package verification, and
+operator smoke. This is an explicit replacement of the prior completion-gate
+execution contract under
+`MODULAR_FLEXIBLE_PRODUCT_EVOLUTION_WITH_EXPLICIT_CONTRACT_REPLACEMENT`; it is
+not an Objective 3 execution or PASS. No verification is repeated merely to
+manufacture that label.
+
+The Video Player-specific blocker for Batch 42.9 is therefore cleared. Batch
+42.9 itself remains blocked and unauthorized because the separate
+`PRE_42_9_ADDITIONAL_FEATURE_REVIEW` still covers other outstanding product
+directions. No application, runtime, test, build, dependency, or Batch 42.9
+execution is authorized by this governance closure.
+
 ## Video Player Corrective Package Delivered — 2026-09-21
 
 This is the newest current-state authority. Older Video Player corrective

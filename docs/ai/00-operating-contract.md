@@ -1125,6 +1125,18 @@ requirements through Result Review, the current execution scope, the next
 Codex prompt, and operator smoke instructions. Consolidate them once that
 package reaches a meaningful boundary.
 
+At a meaningful completion boundary, final verification, Git delivery, Project
+OS reconciliation, and Brain regeneration should normally be combined into one
+closure transaction when their approved scopes and safety boundaries can be
+preserved together. Do not split these closure steps into repeated prompt and
+review cycles without a genuine authorization, evidence, scope, environment,
+remote-state, or protected-data boundary. Reuse accepted verification and do
+not rerun final tests merely for ceremony when prior accepted evidence is
+sufficient for the closure decision. Additional verification is required only
+for a material evidence gap that could change completion or safety. Minimize
+transaction count without weakening approval, evidence, Git, data, Result
+Review, or refresh requirements.
+
 Ordinary iterative refinements may be deferred and batched only while they stay
 inside the approved direction and do not trigger an immediate update. Examples
 include spacing, alignment, opacity or material tuning, color/readability,

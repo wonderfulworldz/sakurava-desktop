@@ -1,5 +1,42 @@
 # Sakurava Session Ledger Archive — 2026
 
+## 2026-09-09 — Video Player Manual Smoke 1 Replacement Contract Reconciled
+
+date: 2026-09-09
+session_type: PROJECT_OS_VIDEO_PLAYER_MANUAL_SMOKE_1_REPLACEMENT_CONTRACT_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_REPLACEMENT_CONTRACT_APPROVAL
+recorded_project_os_baseline: 705b6050b87da945920ed893401dea1dbbdd4a2b
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
+corrective_gate_status: MANUAL_SMOKE_1_REPLACEMENT_CONTRACT_RECONCILED
+corrective_source_wip: PROTECTED_SUBSTANTIAL_TRACKED_DIRECT_OWNER_WIP
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+technical_permissions: false
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_SEPARATE_VIDEO_PLAYER_MANUAL_SMOKE_1_FIVE_ITEM_CORRECTIVE_REWORK_APPROVAL
+
+`OBSERVED_BY_OPERATOR` Manual Smoke 1 passes base approximately-1500 ms
+auto-hide and sufficient Player function for inspection. The replacement
+contract pauses auto-hide while any Player quick-menu hierarchy is active;
+outside click or Esc dismisses it, then normal 1500 ms idle hide resumes.
+Subtitle Appearance and Custom Shortcuts remain separate draggable Player
+utility windows but must use one centered readable client surface, with nested
+window-inside-window presentation prohibited. Light Player utility/menu material
+targets approximately 80% opacity without faded text or controls. Main
+minimal/timeline-only presentation is prohibited and normal edge resize remains
+required. Subtitle safe-area technical correction is deferred to a dedicated
+session; Remember is preservation-only for the five-item rework.
+
+No source, test, build, runtime, Objective 3, Batch 42.9, or application Git
+delivery occurred. The next separately gated action is
+`VIDEO_PLAYER_MANUAL_SMOKE_1_FIVE_ITEM_CORRECTIVE_REWORK` with `Sol` / `High` /
+`IMPLEMENT` / `HIGH` after Result Review and Project ChatGPT refresh.
+
+---
+
 ## 2026-09-08 — Video Player Final Visible Corrective Contract Reconciled
 
 date: 2026-09-08

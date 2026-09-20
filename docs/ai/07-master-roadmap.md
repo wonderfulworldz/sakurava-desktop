@@ -1,5 +1,33 @@
 # Sakurava Master Roadmap
 
+## Video Player Waiver Completion and Pre-42.9 Roadmap — 2026-09-21
+
+This is the newest roadmap authority for Video Player completion and the Batch
+42.9 transition. Older conflicting completion sequencing below is historical.
+
+video_player_objective_3: VIDEO_PLAYER_OBJECTIVE_3_WAIVED_BY_OPERATOR_BASED_ON_ACCEPTED_PRIOR_VERIFICATION
+video_player_objective_3_execution: NOT_EXECUTED
+video_player_objective_3_result: NOT_OBJECTIVE_3_PASS
+video_player_final_state: COMPLETE_AND_ACCEPTED_BY_OPERATOR_WITH_EXPLICIT_OBJECTIVE_3_WAIVER
+video_player_completion_gate: SATISFIED
+batch_42_9_video_player_blocker: CLEARED
+batch_42_9_gate: BLOCKED_PENDING_PRE_42_9_ADDITIONAL_FEATURE_REVIEW
+batch_42_9_approved: false
+next_roadmap_action: PRE_42_9_ADDITIONAL_FEATURE_REVIEW
+next_roadmap_action_status: PENDING_SEPARATE_APPROVAL_AFTER_PROJECT_CHATGPT_REFRESH
+
+The operator accepts Video Player completion using the accepted targeted tests,
+runtime evidence, package verification, and operator smoke already recorded.
+The final integrated Objective 3 run is intentionally waived and was neither
+executed nor passed. This explicit contract replacement closes the Video Player
+completion gate without inventing an Objective 3 result or rerunning evidence
+for ceremony.
+
+Video Player and Contact Sheet therefore no longer block the pre-42.9 sequence.
+Batch 42.9 remains blocked and unauthorized until the independent additional
+feature review resolves the other outstanding directions recorded in the
+current Pre-42.9 authority. No Batch 42.9 work starts through this decision.
+
 ## Video Player Corrective Package Closure Roadmap — 2026-09-21
 
 This is the newest roadmap authority for Video Player continuation. Older
