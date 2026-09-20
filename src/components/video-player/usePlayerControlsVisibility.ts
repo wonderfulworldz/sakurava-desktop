@@ -1,16 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const PLAYER_CONTROLS_IDLE_MS = 3000;
+export const PLAYER_CONTROLS_IDLE_MS = 1500;
 
-export function usePlayerControlsVisibility({
-  playing,
-  held,
-}: {
-  playing: boolean;
-  held: boolean;
-}) {
+export function usePlayerControlsVisibility() {
   const [visible, setVisible] = useState(true);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holds = useRef(new Set<string>());
 
   const cancelTimer = useCallback(() => {
     if (timer.current !== null) clearTimeout(timer.current);
@@ -19,12 +14,14 @@ export function usePlayerControlsVisibility({
 
   const schedule = useCallback(() => {
     cancelTimer();
-    if (!playing || held) {
+    if (holds.current.size > 0) {
       setVisible(true);
       return;
     }
-    timer.current = setTimeout(() => setVisible(false), PLAYER_CONTROLS_IDLE_MS);
-  }, [cancelTimer, held, playing]);
+    timer.current = setTimeout(() => {
+      setVisible(false);
+    }, PLAYER_CONTROLS_IDLE_MS);
+  }, [cancelTimer]);
 
   const reveal = useCallback(() => {
     setVisible(true);
@@ -36,5 +33,16 @@ export function usePlayerControlsVisibility({
     return cancelTimer;
   }, [cancelTimer, schedule]);
 
-  return { visible, reveal };
+  const acquireHold = useCallback((reason: string) => {
+    holds.current.add(reason);
+    cancelTimer();
+    setVisible(true);
+  }, [cancelTimer]);
+
+  const releaseHold = useCallback((reason: string) => {
+    holds.current.delete(reason);
+    if (holds.current.size === 0) schedule();
+  }, [schedule]);
+
+  return { visible, reveal, acquireHold, releaseHold };
 }

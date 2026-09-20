@@ -11,6 +11,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 use windows::Win32::{
     Foundation::{CloseHandle, HANDLE},
     System::JobObjects::{
@@ -21,10 +22,16 @@ use windows::Win32::{
 };
 
 use super::contact_sheet::{
-    cleanup_directory, compose_contact_sheet, ContactSheetExtractionRequest,
-    ContactSheetExtractionResult, ContactSheetGenerationResult, TrustedContactSheetRequest,
+    cleanup_directory, compose_contact_sheet, ContactSheetExtractionProgress,
+    ContactSheetExtractionRequest, ContactSheetExtractionResult, ContactSheetGenerationResult,
+    TrustedContactSheetRequest,
 };
-use super::ipc::{MainToHostKind, MainToHostMessage, OpenSourcePayload, PROTOCOL_VERSION};
+use super::ipc::{
+    HostToMainKind, HostToMainMessage, MainToHostKind, MainToHostMessage, OpenSourcePayload,
+    PROTOCOL_VERSION,
+};
+
+pub const CONTACT_SHEET_REQUEST_EVENT: &str = "video-player:contact-sheet-request";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -75,6 +82,9 @@ struct ActiveHost {
 struct ActiveExtraction {
     request_id: String,
     pid: u32,
+    progress_path: PathBuf,
+    total: usize,
+    cancellation_requested: bool,
 }
 
 #[derive(Default)]
@@ -165,15 +175,23 @@ impl Drop for KillOnCloseJob {
 pub struct PlaybackHostManager {
     active: Arc<Mutex<Option<ActiveHost>>>,
     resource_root: Arc<PathBuf>,
+    webview_data_root: Arc<PathBuf>,
     contact_sheet: Arc<Mutex<ContactSheetState>>,
+    app_handle: Option<AppHandle>,
 }
 
 impl PlaybackHostManager {
-    pub fn new(resource_root: PathBuf) -> Self {
+    pub fn new(
+        resource_root: PathBuf,
+        webview_data_root: PathBuf,
+        app_handle: Option<AppHandle>,
+    ) -> Self {
         Self {
             active: Arc::new(Mutex::new(None)),
             resource_root: Arc::new(resource_root),
+            webview_data_root: Arc::new(webview_data_root),
             contact_sheet: Arc::new(Mutex::new(ContactSheetState::default())),
+            app_handle,
         }
     }
 
@@ -235,7 +253,7 @@ impl PlaybackHostManager {
         let host_executable = resolve_media_host_executable(&self.resource_root)?;
         let engine_root = resolve_engine_root(&self.resource_root)?;
         let assets_root = resolve_player_assets_root(&self.resource_root)?;
-        let webview_data_root = resolve_webview_data_root()?;
+        let webview_data_root = resolve_webview_data_root(&self.webview_data_root)?;
         let mut child = Command::new(&host_executable)
             .arg("--engine-root")
             .arg(&engine_root)
@@ -301,11 +319,40 @@ impl PlaybackHostManager {
             stdin: stdin.clone(),
         });
         let shared = self.active.clone();
+        let app_handle = self.app_handle.clone();
         thread::spawn(move || {
             let _job = job;
             for line in BufReader::new(stdout).lines() {
                 match line {
-                    Ok(message) => eprintln!("[video-player-host:{pid}] {message}"),
+                    Ok(message) => {
+                        if let (Some(app_handle), Ok(event)) = (
+                            app_handle.as_ref(),
+                            serde_json::from_str::<HostToMainMessage>(&message),
+                        ) {
+                            if let HostToMainKind::ContactSheetRequested {
+                                source_identity,
+                                display_name,
+                                resolution,
+                                duration_seconds,
+                                subtitle_id,
+                                subtitle_path,
+                            } = event.kind
+                            {
+                                let _ = app_handle.emit(
+                                    CONTACT_SHEET_REQUEST_EVENT,
+                                    serde_json::json!({
+                                        "sourceIdentity": source_identity,
+                                        "displayName": display_name,
+                                        "resolution": resolution,
+                                        "durationLabel": format_duration_label(duration_seconds),
+                                        "subtitleId": subtitle_id,
+                                        "subtitlePath": subtitle_path,
+                                    }),
+                                );
+                            }
+                        }
+                        eprintln!("[video-player-host:{pid}] {message}");
+                    }
                     Err(error) => {
                         eprintln!("[video-player-host:{pid}] IPC read failed: {error}");
                         break;
@@ -374,11 +421,20 @@ impl PlaybackHostManager {
             .map_err(|error| format!("CONTACT_SHEET_TEMP_ROOT_FAILED: {error}"))?;
         let request_path = request_root.join("request.json");
         let result_path = request_root.join("result.json");
+        let progress_path = request_root.join("progress.json");
         let extraction = ContactSheetExtractionRequest {
             source_path: request.canonical_path.display().to_string(),
-            grid: request.grid,
+            rows: request.rows,
+            columns: request.columns,
             frame_directory: frames.display().to_string(),
             result_path: result_path.display().to_string(),
+            progress_path: progress_path.display().to_string(),
+            subtitles: request.subtitles,
+            subtitle_id: request.subtitle_id,
+            subtitle_path: request
+                .subtitle_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
         };
         std::fs::write(
             &request_path,
@@ -412,10 +468,13 @@ impl PlaybackHostManager {
             state.active = Some(ActiveExtraction {
                 request_id: request_id.clone(),
                 pid,
+                progress_path: progress_path.clone(),
+                total: usize::from(request.rows) * usize::from(request.columns),
+                cancellation_requested: false,
             });
         }
         let status = child.wait_with_output();
-        {
+        let cancellation_requested = {
             let mut state = self
                 .contact_sheet
                 .lock()
@@ -425,19 +484,24 @@ impl PlaybackHostManager {
                 .as_ref()
                 .is_some_and(|active| active.request_id == request_id)
             {
-                state.active = None;
+                state
+                    .active
+                    .take()
+                    .is_some_and(|active| active.cancellation_requested)
+            } else {
+                false
             }
-        }
+        };
         let output =
             status.map_err(|error| format!("CONTACT_SHEET_PROCESS_WAIT_FAILED: {error}"))?;
-        if !output.status.success() {
-            let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if let Err(error) = classify_contact_sheet_process_result(
+            cancellation_requested,
+            output.status.success(),
+            &detail,
+        ) {
             let _ = cleanup_directory(&request_root);
-            return Err(if detail.is_empty() {
-                "CONTACT_SHEET_EXTRACTION_FAILED".into()
-            } else {
-                format!("CONTACT_SHEET_EXTRACTION_FAILED: {detail}")
-            });
+            return Err(error);
         }
         let extracted: ContactSheetExtractionResult = serde_json::from_slice(
             &std::fs::read(&result_path)
@@ -455,6 +519,7 @@ impl PlaybackHostManager {
         let _ = std::fs::remove_dir_all(&frames);
         let _ = std::fs::remove_file(&request_path);
         let _ = std::fs::remove_file(&result_path);
+        let _ = std::fs::remove_file(&progress_path);
         let preview = preview
             .canonicalize()
             .map_err(|error| format!("CONTACT_SHEET_PREVIEW_INVALID: {error}"))?;
@@ -542,18 +607,41 @@ impl PlaybackHostManager {
     }
 
     pub fn cancel_contact_sheet(&self, request_id: Option<&str>) -> Result<bool, String> {
+        let pid = {
+            let mut state = self
+                .contact_sheet
+                .lock()
+                .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?;
+            let Some(active) = state.active.as_mut() else {
+                return Ok(false);
+            };
+            if request_id.is_some_and(|value| value != active.request_id) {
+                return Ok(false);
+            }
+            active.cancellation_requested = true;
+            active.pid
+        };
+        terminate_process(pid)?;
+        Ok(true)
+    }
+
+    pub fn contact_sheet_progress(&self) -> Result<ContactSheetExtractionProgress, String> {
         let state = self
             .contact_sheet
             .lock()
             .map_err(|_| "CONTACT_SHEET_STATE_UNAVAILABLE")?;
         let Some(active) = state.active.as_ref() else {
-            return Ok(false);
+            return Ok(ContactSheetExtractionProgress::default());
         };
-        if request_id.is_some_and(|value| value != active.request_id) {
-            return Ok(false);
-        }
-        terminate_process(active.pid)?;
-        Ok(true)
+        let mut progress = std::fs::read(&active.progress_path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<ContactSheetExtractionProgress>(&bytes).ok())
+            .unwrap_or(ContactSheetExtractionProgress {
+                completed: 0,
+                total: active.total,
+            });
+        progress.total = active.total;
+        Ok(progress)
     }
 }
 
@@ -561,6 +649,24 @@ fn disposable_or_system_temp_root() -> PathBuf {
     std::env::var_os("SAKURAVA_DISPOSABLE_DATA_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
+}
+
+fn classify_contact_sheet_process_result(
+    cancellation_requested: bool,
+    succeeded: bool,
+    detail: &str,
+) -> Result<(), String> {
+    if cancellation_requested {
+        return Err("CONTACT_SHEET_CANCELLED".into());
+    }
+    if succeeded {
+        return Ok(());
+    }
+    Err(if detail.is_empty() {
+        "CONTACT_SHEET_EXTRACTION_FAILED".into()
+    } else {
+        format!("CONTACT_SHEET_EXTRACTION_FAILED: {detail}")
+    })
 }
 
 #[cfg(target_os = "windows")]
@@ -589,7 +695,16 @@ impl Default for PlaybackHostManager {
             .ok()
             .and_then(|path| path.parent().map(Path::to_path_buf))
             .unwrap_or_else(|| PathBuf::from("."));
-        Self::new(resource_root)
+        let webview_data_root = resource_root.join("video-player-webview2");
+        Self::new(resource_root, webview_data_root, None)
+    }
+}
+
+fn format_duration_label(seconds: f64) -> String {
+    if seconds.is_finite() && seconds > 0.0 {
+        format!("{} min", (seconds / 60.0).round().max(1.0) as u64)
+    } else {
+        "Loading…".into()
     }
 }
 
@@ -697,13 +812,15 @@ fn packaged_video_player_paths(resource_root: &Path) -> (PathBuf, PathBuf, PathB
     )
 }
 
-fn resolve_webview_data_root() -> Result<PathBuf, VideoPlayerCommandError> {
+fn resolve_webview_data_root(
+    application_owned_root: &Path,
+) -> Result<PathBuf, VideoPlayerCommandError> {
     let root = if cfg!(debug_assertions) {
         std::env::var_os("SAKURAVA_VIDEO_PLAYER_WEBVIEW_DATA_ROOT")
             .map(PathBuf::from)
-            .unwrap_or_else(|| std::env::temp_dir().join("sakurava-video-player-webview2"))
+            .unwrap_or_else(|| application_owned_root.to_path_buf())
     } else {
-        std::env::temp_dir().join("sakurava-video-player-webview2")
+        application_owned_root.to_path_buf()
     };
     std::fs::create_dir_all(&root)
         .map_err(|cause| error("PLAYER_WEBVIEW_DATA_INVALID", &cause.to_string()))?;
@@ -764,6 +881,22 @@ mod tests {
         assert_eq!(
             serde_json::to_value(value).unwrap()["code"],
             "ACTIVE_SESSION_DIFFERENT_SOURCE"
+        );
+    }
+
+    #[test]
+    fn contact_sheet_cancel_is_distinct_from_real_extraction_failure() {
+        assert_eq!(
+            classify_contact_sheet_process_result(true, false, "seek failed"),
+            Err("CONTACT_SHEET_CANCELLED".into())
+        );
+        assert_eq!(
+            classify_contact_sheet_process_result(false, false, "seek failed"),
+            Err("CONTACT_SHEET_EXTRACTION_FAILED: seek failed".into())
+        );
+        assert_eq!(
+            classify_contact_sheet_process_result(false, true, ""),
+            Ok(())
         );
     }
 

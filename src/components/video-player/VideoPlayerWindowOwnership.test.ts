@@ -74,4 +74,11 @@ describe("Video Player auxiliary-window ownership", () => {
       contactSheetSource.indexOf("await appWindow.destroy()"),
     );
   });
+
+  it("uses native close-only chrome instead of a duplicate client close action", () => {
+    expect(contactSheetSource).not.toContain("closeCurrentAuxiliaryWindow");
+    expect(contactSheetSource).not.toContain('t("common.close")');
+    expect(contactSheetSource).toContain('data-material="sakurava-true-glass"');
+    expect(contactSheetSource).toContain('data-surface-opacity="80"');
+  });
 });

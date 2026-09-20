@@ -17,10 +17,17 @@ export const MINI_PLAYER_WINDOW_LABEL = "mini-player";
 export const VIDEO_PLAYER_WINDOW_KIND = "video-player";
 export const CONTACT_SHEET_WINDOW_KIND = "contact-sheet";
 export const MINI_PLAYER_WINDOW_KIND = "mini-player";
+export const PLAYER_AUXILIARY_WINDOW_GEOMETRY = {
+  width: 1100,
+  height: 760,
+  minWidth: 720,
+  minHeight: 560,
+} as const;
 
 const VIDEO_PLAYER_PAYLOAD_EVENT = "video-player:payload";
 const CONTACT_SHEET_PAYLOAD_EVENT = "contact-sheet:payload";
 const MINI_PLAYER_PAYLOAD_EVENT = "mini-player:payload";
+const CONTACT_SHEET_REQUEST_EVENT = "video-player:contact-sheet-request";
 const VIDEO_PLAYER_PAYLOAD_STORAGE_KEY =
   "sakurava.videoPlayer.windowPayload.v1";
 const CONTACT_SHEET_PAYLOAD_STORAGE_KEY =
@@ -43,6 +50,8 @@ export type ProductionVideoPlayerOpenInput = Omit<VideoPlayerWindowPayload, "req
 
 export type ContactSheetWindowPayload = VideoPlayerWindowPayload & {
   sourceIdentity: string;
+  subtitleId?: number | null;
+  subtitlePath?: string | null;
 };
 export type MiniPlayerWindowPayload = VideoPlayerWindowPayload;
 
@@ -112,7 +121,7 @@ export async function openVideoPlayerWindow(
 }
 
 export async function openContactSheetWindow(
-  input: WindowPayloadInput & { sourceIdentity: string },
+  input: Omit<ContactSheetWindowPayload, "requestId">,
 ): Promise<AuxiliaryWindowOpenResult> {
   const payload = createPayload("contact", input);
   return openAuxiliaryWindow({
@@ -122,11 +131,32 @@ export async function openContactSheetWindow(
     payload,
     payloadEvent: CONTACT_SHEET_PAYLOAD_EVENT,
     storageKey: CONTACT_SHEET_PAYLOAD_STORAGE_KEY,
-    width: 1100,
-    height: 760,
-    minWidth: 720,
-    minHeight: 560,
+    ...PLAYER_AUXILIARY_WINDOW_GEOMETRY,
+    closable: true,
+    maximizable: false,
+    minimizable: false,
+    transparent: true,
   });
+}
+
+let contactSheetRequestListenerInstalled = false;
+
+export function installVideoPlayerContactSheetRequestListener() {
+  if (
+    contactSheetRequestListenerInstalled ||
+    typeof window === "undefined" ||
+    !isTauriRuntimeAvailable() ||
+    getSakuravaWindowKind() !== null
+  ) return;
+  contactSheetRequestListenerInstalled = true;
+  void listen<Omit<ContactSheetWindowPayload, "requestId">>(
+    CONTACT_SHEET_REQUEST_EVENT,
+    (event) => { void openContactSheetWindow(event.payload); },
+  ).catch(() => { contactSheetRequestListenerInstalled = false; });
+}
+
+if (typeof window !== "undefined") {
+  queueMicrotask(installVideoPlayerContactSheetRequestListener);
 }
 
 export async function openMiniPlayerWindow(
@@ -417,7 +447,7 @@ export async function returnToVideoPlayerWindow() {
   }
 }
 
-function createPayload(prefix: string, input: WindowPayloadInput) {
+function createPayload<T extends WindowPayloadInput>(prefix: string, input: T): T & { requestId: string } {
   const randomPart =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -440,6 +470,10 @@ async function openAuxiliaryWindow({
   minWidth,
   minHeight,
   alwaysOnTop,
+  closable,
+  maximizable,
+  minimizable,
+  transparent,
   getCreationOptions,
 }: {
   label: string;
@@ -453,6 +487,10 @@ async function openAuxiliaryWindow({
   minWidth: number;
   minHeight: number;
   alwaysOnTop?: boolean;
+  closable?: boolean;
+  maximizable?: boolean;
+  minimizable?: boolean;
+  transparent?: boolean;
   getCreationOptions?: () => Promise<{
     center?: boolean;
     decorations?: boolean;
@@ -494,11 +532,15 @@ async function openAuxiliaryWindow({
       focus: true,
       height: creationOptions?.height ?? height,
       alwaysOnTop,
+      closable,
       minHeight: creationOptions?.minHeight ?? minHeight,
       minWidth: creationOptions?.minWidth ?? minWidth,
+      maximizable,
+      minimizable,
       preventOverflow: creationOptions?.preventOverflow,
       resizable: creationOptions?.resizable ?? true,
       title,
+      transparent,
       url: `/?sakuravaWindow=${kind}`,
       width: creationOptions?.width ?? width,
       x: creationOptions?.x,
@@ -518,9 +560,14 @@ async function openAuxiliaryWindow({
         resolve(result);
       }
 
-      void createdWindow.once("tauri://created", () =>
-        settle({ mode: "window" }),
-      );
+      void createdWindow.once("tauri://created", () => {
+        void createdWindow.setFocus()
+          .then(() => settle({ mode: "window" }))
+          .catch((error) => settle({
+            mode: "unavailable",
+            reason: `window-focus-failed:${error instanceof Error ? error.message : String(error)}`,
+          }));
+      });
       void createdWindow.once<string>("tauri://error", (event) =>
         settle({
           mode: "unavailable",

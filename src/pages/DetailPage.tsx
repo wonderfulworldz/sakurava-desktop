@@ -88,7 +88,6 @@ import { isTauriRuntimeAvailable } from "../runtime/tauriClient";
 import { updateVideo } from "../runtime/videoCommands";
 import { useTranslation } from "../lib/LanguageContext";
 import {
-  openContactSheetWindow,
   openVideoPlayerWindow,
   type AuxiliaryWindowOpenResult,
 } from "../runtime/videoPlayerWindows";
@@ -407,18 +406,6 @@ function CatalogDetailPage({
               intent,
             })
           }
-          onOpenContactSheet={() =>
-            openContactSheetWindow({
-              sourceIdentity: config.recordId ?? "",
-              displayName: config.displayTitle,
-              resolution:
-                config.techItems.find((item) => item.label === "Resolution")?.value ??
-                "N/A",
-              durationLabel:
-                config.techItems.find((item) => item.label === "Duration")?.value ??
-                "N/A",
-            })
-          }
         />
       </div>
     </section>
@@ -468,11 +455,9 @@ function CatalogIdentity({
   config,
   favoriteAction,
   onOpenVideoPlayer,
-  onOpenContactSheet,
 }: DetailPageProps & {
   favoriteAction: DetailFavoriteAction;
   onOpenVideoPlayer: (intent?: "open" | "focusExisting" | "replace") => Promise<AuxiliaryWindowOpenResult>;
-  onOpenContactSheet: () => Promise<AuxiliaryWindowOpenResult>;
 }) {
   const t = useTranslation();
   const visibleChips = filterSafeFilterCensorshipValues(
@@ -526,9 +511,6 @@ function CatalogIdentity({
               item={playableMedia}
               onOpenBuiltInPlayer={
                 config.kind === "videos" ? onOpenVideoPlayer : undefined
-              }
-              onOpenContactSheet={
-                config.kind === "videos" ? onOpenContactSheet : undefined
               }
             />
           </div>
@@ -1094,11 +1076,9 @@ function isEmptyDetailValue(value: string | number | null | undefined) {
 function HeroPlayButton({
   item,
   onOpenBuiltInPlayer,
-  onOpenContactSheet,
 }: {
   item: MediaPathItem;
   onOpenBuiltInPlayer?: (intent?: "open" | "focusExisting" | "replace") => Promise<AuxiliaryWindowOpenResult>;
-  onOpenContactSheet?: () => Promise<AuxiliaryWindowOpenResult>;
 }) {
   const t = useTranslation();
   const [status, setStatus] = useState<PathStatusState>(() => ({
@@ -1185,22 +1165,6 @@ function HeroPlayButton({
     setOpening(false);
   }
 
-  async function handleContactSheet() {
-    if (status.status !== "exists" || opening || !onOpenContactSheet) return;
-    setOpening(true);
-    setFeedback(null);
-    try {
-      const result = await onOpenContactSheet();
-      setFeedback(result.mode === "window"
-        ? t("contactSheet.opened")
-        : result.reason || t("contactSheet.unavailable"));
-    } catch {
-      setFeedback(t("contactSheet.unavailable"));
-    } finally {
-      setOpening(false);
-    }
-  }
-
   return (
     <div className="flex flex-wrap items-center gap-3">
       <button
@@ -1212,17 +1176,6 @@ function HeroPlayButton({
         <Play size={16} fill="currentColor" />
         {opening ? t("viewer.opening") : t("detail.play")}
       </button>
-      {onOpenContactSheet && (
-        <button
-          type="button"
-          onClick={() => void handleContactSheet()}
-          disabled={disabled}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sakura-200 hover:text-sakura-600 disabled:cursor-not-allowed disabled:text-slate-300"
-        >
-          <Grid2X2 size={16} aria-hidden="true" />
-          {t("contactSheet.title")}
-        </button>
-      )}
       {feedback && (
         <span className="text-xs font-medium text-slate-500">{feedback}</span>
       )}

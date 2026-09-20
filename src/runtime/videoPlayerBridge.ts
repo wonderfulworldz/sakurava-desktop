@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const VIDEO_PLAYER_PROTOCOL_VERSION = 4;
+export const VIDEO_PLAYER_PROTOCOL_VERSION = 6;
 
 export type PlaybackStatus = "connecting" | "loading" | "ready" | "ended" | "error" | "closed";
 
@@ -23,6 +23,7 @@ export type PlaybackSnapshot = {
   loopEnabled: boolean;
   subtitleTracks: SubtitleTrack[];
   activeSubtitleId: number | null;
+  subtitleDelaySeconds: number;
   presentation: "main" | "pip";
   fullscreen: boolean;
   doubleClickIntervalMs: number;
@@ -77,6 +78,9 @@ export type PlayerCommandKind =
   | "captureScreenshot"
   | "openScreenshotFolder"
   | "openExternally"
+  | "openContactSheet"
+  | "openSubtitleAppearance"
+  | "openShortcuts"
   | "enterFullscreen"
   | "exitFullscreen"
   | "toggleFullscreen"
@@ -118,6 +122,7 @@ export function parsePlaybackSnapshot(value: unknown): PlaybackSnapshot | null {
     typeof event.snapshot.loopEnabled !== "boolean" ||
     !Array.isArray(event.snapshot.subtitleTracks) ||
     (event.snapshot.activeSubtitleId !== null && typeof event.snapshot.activeSubtitleId !== "number") ||
+    typeof event.snapshot.subtitleDelaySeconds !== "number" ||
     (event.snapshot.presentation !== "main" && event.snapshot.presentation !== "pip") ||
     typeof event.snapshot.fullscreen !== "boolean" ||
     typeof event.snapshot.doubleClickIntervalMs !== "number" ||
@@ -188,10 +193,19 @@ export function useVideoPlayerBridge() {
     loadExternalSubtitle: () => send("loadExternalSubtitle"),
     setSubtitleAppearance: (appearance: Record<string, unknown>) => send("setSubtitleAppearance", appearance),
     setSubtitleDelay: (seconds: number) => send("setSubtitleDelay", { seconds }),
-    setSubtitleInset: (pixels: number) => send("setSubtitleInset", { pixels }),
+    setSubtitleInset: (geometry: {
+      safeAreaBottomRatio: number;
+      overlapCssPixels: number;
+      viewportWidthCssPixels: number;
+      viewportHeightCssPixels: number;
+      deviceScaleFactor: number;
+    }) => send("setSubtitleInset", geometry),
     captureScreenshot: () => send("captureScreenshot"),
     openScreenshotFolder: () => send("openScreenshotFolder"),
     openExternally: () => send("openExternally"),
+    openContactSheet: () => send("openContactSheet"),
+    openSubtitleAppearance: () => send("openSubtitleAppearance"),
+    openShortcuts: () => send("openShortcuts"),
     enterFullscreen: () => send("enterFullscreen"),
     exitFullscreen: () => send("exitFullscreen"),
     toggleFullscreen: () => send("toggleFullscreen"),

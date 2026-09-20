@@ -15,12 +15,26 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct ContactSheetGenerateInput {
     pub source_identity: String,
-    pub grid: u8,
+    pub rows: u8,
+    pub columns: u8,
     pub width: u32,
     pub quality: u8,
     pub timestamp: bool,
     pub header: bool,
+    pub subtitles: bool,
+    #[serde(default)]
+    pub subtitle_id: Option<i64>,
+    #[serde(default)]
+    pub subtitle_path: Option<String>,
+    pub theme: ContactSheetTheme,
     pub format: ContactSheetFormat,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ContactSheetTheme {
+    Light,
+    Dark,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
@@ -44,11 +58,19 @@ pub struct TrustedContactSheetRequest {
     pub source_identity: String,
     pub canonical_path: PathBuf,
     pub display_name: String,
-    pub grid: u8,
+    pub file_name: String,
+    pub file_size_bytes: u64,
+    pub resolution: String,
+    pub rows: u8,
+    pub columns: u8,
     pub width: u32,
     pub quality: u8,
     pub timestamp: bool,
     pub header: bool,
+    pub subtitles: bool,
+    pub subtitle_id: Option<i64>,
+    pub subtitle_path: Option<PathBuf>,
+    pub theme: ContactSheetTheme,
     pub format: ContactSheetFormat,
 }
 
@@ -68,9 +90,14 @@ pub struct ContactSheetGenerationResult {
 #[serde(rename_all = "camelCase")]
 pub struct ContactSheetExtractionRequest {
     pub source_path: String,
-    pub grid: u8,
+    pub rows: u8,
+    pub columns: u8,
     pub frame_directory: String,
     pub result_path: String,
+    pub progress_path: String,
+    pub subtitles: bool,
+    pub subtitle_id: Option<i64>,
+    pub subtitle_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,9 +108,22 @@ pub struct ContactSheetExtractionResult {
     pub frame_paths: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactSheetExtractionProgress {
+    pub completed: usize,
+    pub total: usize,
+}
+
 pub fn validate_request(input: &ContactSheetGenerateInput) -> Result<(), String> {
-    if !matches!(input.grid, 3 | 4 | 5) {
-        return Err("CONTACT_SHEET_GRID_INVALID".into());
+    if !(1..=8).contains(&input.rows) {
+        return Err("CONTACT_SHEET_ROWS_INVALID".into());
+    }
+    if !(1..=24).contains(&input.columns) {
+        return Err("CONTACT_SHEET_COLUMNS_INVALID".into());
+    }
+    if usize::from(input.rows) * usize::from(input.columns) > 192 {
+        return Err("CONTACT_SHEET_FRAME_COUNT_INVALID".into());
     }
     if !(640..=3840).contains(&input.width) {
         return Err("CONTACT_SHEET_WIDTH_INVALID".into());
@@ -98,7 +138,7 @@ pub fn sample_schedule(duration_seconds: f64, count: usize) -> Result<Vec<f64>, 
     if !duration_seconds.is_finite() || duration_seconds <= 0.0 {
         return Err("CONTACT_SHEET_DURATION_INVALID".into());
     }
-    if count == 0 || count > 25 {
+    if count == 0 || count > 192 {
         return Err("CONTACT_SHEET_SAMPLE_COUNT_INVALID".into());
     }
     if count == 1 {
@@ -117,46 +157,79 @@ pub fn compose_contact_sheet(
     extraction: &ContactSheetExtractionResult,
     output_path: &Path,
 ) -> Result<(u32, u32), String> {
-    let expected = usize::from(request.grid) * usize::from(request.grid);
+    let expected = usize::from(request.rows) * usize::from(request.columns);
     if extraction.frame_paths.len() != expected || extraction.sample_seconds.len() != expected {
         return Err("CONTACT_SHEET_FRAME_SET_INCOMPLETE".into());
     }
     let gap = 6u32;
-    let header_height = if request.header { 42 } else { 0 };
+    let header_height = if request.header { 76 } else { 0 };
     let inner_width = request
         .width
-        .saturating_sub(gap * (u32::from(request.grid) + 1));
-    let cell_width = inner_width / u32::from(request.grid);
+        .saturating_sub(gap * (u32::from(request.columns) + 1));
+    let cell_width = inner_width / u32::from(request.columns);
+    if cell_width == 0 {
+        return Err("CONTACT_SHEET_CELL_SIZE_INVALID".into());
+    }
     let first = image::open(&extraction.frame_paths[0])
         .map_err(|error| format!("CONTACT_SHEET_FRAME_INVALID: {error}"))?;
     let ratio = first.width() as f64 / first.height().max(1) as f64;
     let cell_height = ((cell_width as f64 / ratio).round() as u32).max(1);
     let height =
-        header_height + gap * (u32::from(request.grid) + 1) + cell_height * u32::from(request.grid);
-    let mut sheet = RgbImage::from_pixel(request.width, height, Rgb([15, 23, 42]));
+        header_height + gap * (u32::from(request.rows) + 1) + cell_height * u32::from(request.rows);
+    let (background, primary, secondary) = match request.theme {
+        ContactSheetTheme::Light => (Rgb([248, 250, 252]), Rgb([15, 23, 42]), Rgb([71, 85, 105])),
+        ContactSheetTheme::Dark => (
+            Rgb([15, 23, 42]),
+            Rgb([241, 245, 249]),
+            Rgb([203, 213, 225]),
+        ),
+    };
+    let mut sheet = RgbImage::from_pixel(request.width, height, background);
     if request.header {
+        draw_text(&mut sheet, 12, 8, &request.file_name, 2, primary);
         draw_text(
             &mut sheet,
             12,
-            12,
-            &request.display_name,
-            2,
-            Rgb([241, 245, 249]),
+            30,
+            &format!("SIZE: {}", format_file_size(request.file_size_bytes)),
+            1,
+            secondary,
         );
+        draw_text(
+            &mut sheet,
+            12,
+            43,
+            &format!("RESOLUTION: {}", request.resolution),
+            1,
+            secondary,
+        );
+        draw_text(
+            &mut sheet,
+            12,
+            56,
+            &format!(
+                "DURATION: {}",
+                format_timestamp(extraction.duration_seconds)
+            ),
+            1,
+            secondary,
+        );
+        let brand_x = request.width.saturating_sub(112);
+        draw_text(&mut sheet, brand_x, 12, "SAKURAVA", 2, Rgb([244, 114, 182]));
     }
     for (index, frame_path) in extraction.frame_paths.iter().enumerate() {
         let frame = image::open(frame_path)
             .map_err(|error| format!("CONTACT_SHEET_FRAME_INVALID: {error}"))?
             .to_rgb8();
         let resized = resize(&frame, cell_width, cell_height, FilterType::Lanczos3);
-        let column = index as u32 % u32::from(request.grid);
-        let row = index as u32 / u32::from(request.grid);
+        let column = index as u32 % u32::from(request.columns);
+        let row = index as u32 / u32::from(request.columns);
         let x = gap + column * (cell_width + gap);
         let y = header_height + gap + row * (cell_height + gap);
         overlay(&mut sheet, &resized, i64::from(x), i64::from(y));
         if request.timestamp {
             let label = format_timestamp(extraction.sample_seconds[index]);
-            let text_width = label.chars().count() as u32 * 12 + 8;
+            let text_width = label.chars().count() as u32 * 6 + 8;
             let box_x = x + cell_width.saturating_sub(text_width + 5);
             let box_y = y + cell_height.saturating_sub(22);
             fill_rect(&mut sheet, box_x, box_y, text_width, 18, Rgb([0, 0, 0]));
@@ -190,6 +263,16 @@ pub fn compose_contact_sheet(
         }
     }
     Ok((request.width, height))
+}
+
+fn format_file_size(bytes: u64) -> String {
+    const MIB: f64 = 1024.0 * 1024.0;
+    const GIB: f64 = 1024.0 * MIB;
+    if bytes as f64 >= GIB {
+        format!("{:.2} GIB", bytes as f64 / GIB)
+    } else {
+        format!("{:.1} MIB", bytes as f64 / MIB)
+    }
 }
 
 pub fn cleanup_directory(path: &Path) -> Result<(), String> {
@@ -309,10 +392,40 @@ mod tests {
     }
 
     #[test]
-    fn accepts_only_approved_grids_and_bounded_counts() {
-        assert!(sample_schedule(10.0, 25).is_ok());
-        assert!(sample_schedule(10.0, 26).is_err());
+    fn accepts_only_bounded_counts() {
+        assert!(sample_schedule(10.0, 192).is_ok());
+        assert!(sample_schedule(10.0, 193).is_err());
         assert!(sample_schedule(0.0, 9).is_err());
+    }
+
+    #[test]
+    fn validates_manual_rows_and_columns_without_hidden_clamping() {
+        let mut input = ContactSheetGenerateInput {
+            source_identity: "V-TEST".into(),
+            rows: 8,
+            columns: 24,
+            width: 1600,
+            quality: 90,
+            timestamp: true,
+            header: true,
+            subtitles: false,
+            subtitle_id: None,
+            subtitle_path: None,
+            theme: ContactSheetTheme::Dark,
+            format: ContactSheetFormat::Jpeg,
+        };
+        assert!(validate_request(&input).is_ok());
+        input.columns = 25;
+        assert_eq!(
+            validate_request(&input),
+            Err("CONTACT_SHEET_COLUMNS_INVALID".into())
+        );
+        input.columns = 24;
+        input.rows = 9;
+        assert_eq!(
+            validate_request(&input),
+            Err("CONTACT_SHEET_ROWS_INVALID".into())
+        );
     }
 
     #[test]
@@ -337,11 +450,19 @@ mod tests {
             source_identity: "V-TEST".into(),
             canonical_path: root.join("fixture.mp4"),
             display_name: "Composition Fixture".into(),
-            grid: 3,
+            file_name: "fixture.mp4".into(),
+            file_size_bytes: 1_048_576,
+            resolution: "1920 x 1080".into(),
+            rows: 3,
+            columns: 3,
             width: 900,
             quality: 90,
             timestamp: true,
             header: false,
+            subtitles: false,
+            subtitle_id: None,
+            subtitle_path: None,
+            theme: ContactSheetTheme::Dark,
             format: ContactSheetFormat::Jpeg,
         };
         let extraction = ContactSheetExtractionResult {

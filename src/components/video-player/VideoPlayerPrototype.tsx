@@ -17,10 +17,10 @@ import {
   Volume1,
   Volume2,
   VolumeX,
-  X,
 } from "lucide-react";
 import {
   useEffect,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -33,9 +33,13 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "../../lib/LanguageContext";
 import {
+  getVideoPlayerSourcePreferences,
   loadVideoPlayerPreferences,
   parseVideoPlayerPreferences,
+  resumablePosition,
   saveVideoPlayerPreferences,
+  sourcePreferenceKey,
+  VIDEO_PLAYER_PREFERENCES_STORAGE_KEY,
   VIDEO_PLAYER_SHORTCUT_DEFAULTS,
   type VideoPlayerPreferences,
   type VideoPlayerShortcutAction,
@@ -45,7 +49,7 @@ import {
   openMiniPlayerWindow,
   setCurrentPlayerFullscreen,
 } from "../../runtime/videoPlayerWindows";
-import SubtitleSettingsDialog from "./SubtitleSettingsDialog";
+import PlayerSettingsPanel from "./PlayerSettingsPanel";
 import { usePlayerControlsVisibility } from "./usePlayerControlsVisibility";
 
 export type StepMode = "1F" | "1S" | "10S" | "1M" | "10M";
@@ -76,6 +80,7 @@ export type VideoPlayerPlaybackAdapter = {
   onStep: (direction: "backward" | "forward", step: StepMode) => void;
   onSetSpeed: (speed: number) => void;
   onSetVolume: (volume: number) => void;
+  onSetMuted?: (muted: boolean) => void;
   onToggleMute: () => void;
   onSetLoopA: (seconds: number) => void;
   onSetLoopB: (seconds: number) => void;
@@ -88,14 +93,26 @@ export type VideoPlayerPlaybackAdapter = {
   onClearCommandResult?: () => void;
   onSetSubtitleAppearance?: (appearance: VideoPlayerSubtitlePreferences) => void;
   onSetSubtitleDelay?: (seconds: number) => void;
-  onSetSubtitleInset?: (pixels: number) => void;
+  onSetSubtitleInset?: (geometry: SubtitleInsetGeometry) => void;
   onCaptureScreenshot?: () => void;
   onOpenScreenshotFolder?: () => void;
   doubleClickIntervalMs?: number;
   sessionId?: string;
+  sourceIdentity?: string;
   onOpenExternally: () => void;
+  onOpenContactSheet?: () => Promise<boolean>;
+  onOpenSubtitleAppearance?: () => void;
+  onOpenShortcuts?: () => void;
   onToggleFullscreen: () => void;
   onEnterPip: () => void;
+};
+
+export type SubtitleInsetGeometry = {
+  safeAreaBottomRatio: number;
+  overlapCssPixels: number;
+  viewportWidthCssPixels: number;
+  viewportHeightCssPixels: number;
+  deviceScaleFactor: number;
 };
 
 export { VIDEO_PLAYER_SHORTCUT_DEFAULTS };
@@ -129,12 +146,14 @@ export default function VideoPlayerPrototype({
   durationLabel,
   playback,
   windowHost = "tauri",
+  preferenceStorage,
 }: {
   displayName: string;
   resolution: string;
   durationLabel: string;
   playback?: VideoPlayerPlaybackAdapter;
   windowHost?: "tauri" | "composition";
+  preferenceStorage?: Pick<Storage, "getItem" | "setItem">;
 }) {
   const t = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -154,14 +173,9 @@ export default function VideoPlayerPrototype({
   const [captureState, setCaptureState] = useState<"idle" | "capturing" | "success" | "error">("idle");
   const [lastScreenshotPath, setLastScreenshotPath] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  const [shortcutOpen, setShortcutOpen] = useState(false);
-  const [preferences, setPreferences] = useState<VideoPlayerPreferences>(() => loadVideoPlayerPreferences());
+  const [preferences, setPreferences] = useState<VideoPlayerPreferences>(() => loadVideoPlayerPreferences(preferenceStorage));
   const [shortcutBindings, setShortcutBindings] = useState(preferences.shortcuts);
-  const [subtitlePreferencesOpen, setSubtitlePreferencesOpen] = useState(false);
-  const [subtitleDelay, setSubtitleDelay] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [pointerInControls, setPointerInControls] = useState(false);
-  const [controlsFocused, setControlsFocused] = useState(false);
   const [seeking, setSeeking] = useState(false);
   const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
@@ -169,7 +183,13 @@ export default function VideoPlayerPrototype({
   const controlsRef = useRef<HTMLElement | null>(null);
   const singleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAppearanceRef = useRef<string | null>(null);
-  const lastInsetRef = useRef(-1);
+  const lastInsetRef = useRef<string | null>(null);
+  const hydrationRef = useRef<{ key: string; phase: "global" | "loop" | "subtitle" | "resume" | "complete"; pending: string | null } | null>(null);
+  const positionCheckpointRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestPlaybackRef = useRef(playback);
+  const latestPreferencesRef = useRef(preferences);
+  latestPlaybackRef.current = playback;
+  latestPreferencesRef.current = preferences;
   const sendInsetRef = useRef(playback?.onSetSubtitleInset);
   sendInsetRef.current = playback?.onSetSubtitleInset;
 
@@ -185,8 +205,7 @@ export default function VideoPlayerPrototype({
   const loopInvalid = effectiveLoopStart !== null && effectiveLoopEnd !== null && effectiveLoopEnd <= effectiveLoopStart;
   const loopEnabled = playback?.loopEnabled ?? loopOpen;
   const effectiveFullscreen = playback?.fullscreen ?? fullscreen;
-  const controlsHeld = !effectivePlaying || pointerInControls || controlsFocused || seeking || volumeExpanded || settingsOpen || shortcutOpen || subtitlePreferencesOpen || loopOpen;
-  const { visible: controlsVisible, reveal: revealControls } = usePlayerControlsVisibility({ playing: effectivePlaying, held: controlsHeld });
+  const { visible: controlsVisible, reveal: revealControls, acquireHold, releaseHold } = usePlayerControlsVisibility();
   const loopStatus = !loopEnabled
     ? t("videoPlayer.loop.off")
     : loopInvalid
@@ -198,15 +217,8 @@ export default function VideoPlayerPrototype({
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        if (shortcutOpen) {
-          setShortcutOpen(false);
-        } else if (settingsOpen) {
-          if (settingsView !== "root") {
-            setSettingsView("root");
-          } else {
-            setSettingsOpen(false);
-            settingsButtonRef.current?.focus();
-          }
+        if (settingsOpen) {
+          closeSettingsMenu();
         } else if (effectiveFullscreen) {
           setFullscreen(false);
           if (playback) playback.onToggleFullscreen(); else void setCurrentPlayerFullscreen(false);
@@ -215,13 +227,19 @@ export default function VideoPlayerPrototype({
       }
 
       const target = event.target as HTMLElement | null;
+      if (settingsOpen) {
+        revealControls();
+        return;
+      }
       if (
-        settingsOpen ||
-        shortcutOpen ||
         target?.tagName === "INPUT" ||
+        target?.tagName === "SELECT" ||
         target?.tagName === "TEXTAREA" ||
         target?.isContentEditable
-      ) return;
+      ) {
+        revealControls();
+        return;
+      }
 
       const pressedKey = getKeyboardBinding(event);
       if (!pressedKey) return;
@@ -263,23 +281,24 @@ export default function VideoPlayerPrototype({
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [effectiveFullscreen, settingsOpen, settingsView, shortcutBindings, shortcutOpen, volume, lastAudibleVolume, playback, step.label]);
+  }, [effectiveFullscreen, settingsOpen, settingsView, shortcutBindings, volume, lastAudibleVolume, playback, revealControls, step.label]);
 
   useEffect(() => {
     if (!settingsOpen) return;
-    function handlePointerDown(event: MouseEvent) {
-      if (
-        settingsRef.current &&
-        !settingsRef.current.contains(event.target as Node) &&
-        !settingsButtonRef.current?.contains(event.target as Node)
-      ) {
-        setSettingsOpen(false);
-        setSettingsView("root");
-      }
+    acquireHold("menu-hierarchy");
+    return () => releaseHold("menu-hierarchy");
+  }, [acquireHold, releaseHold, settingsOpen]);
+
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key !== VIDEO_PLAYER_PREFERENCES_STORAGE_KEY) return;
+      const next = loadVideoPlayerPreferences(preferenceStorage);
+      setPreferences(next);
+      setShortcutBindings(next.shortcuts);
     }
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [settingsOpen]);
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [preferenceStorage]);
 
   useEffect(() => {
     if (!playback?.commandResult) return;
@@ -332,22 +351,170 @@ export default function VideoPlayerPrototype({
     playback.onSetSubtitleAppearance(preferences.subtitles);
   }, [playback?.sessionId, playback?.onSetSubtitleAppearance, preferences.subtitles]);
 
+  useEffect(() => {
+    if (seeking) acquireHold("timeline-seek"); else releaseHold("timeline-seek");
+    return () => releaseHold("timeline-seek");
+  }, [acquireHold, releaseHold, seeking]);
+
+  useEffect(() => {
+    if (!playback?.sessionId || !playback.sourceIdentity || playback.status === "connecting" || playback.status === "loading") return;
+    const key = `${playback.sessionId}:${playback.sourceIdentity}`;
+    if (hydrationRef.current?.key !== key) hydrationRef.current = { key, phase: "global", pending: null };
+    const hydration = hydrationRef.current;
+    const source = getVideoPlayerSourcePreferences(preferences, playback.sourceIdentity);
+    const sendOnce = (token: string, send: () => void) => {
+      if (hydration.pending === token) return;
+      hydration.pending = token;
+      send();
+    };
+    const advance = (phase: typeof hydration.phase) => {
+      hydration.phase = phase;
+      hydration.pending = null;
+    };
+
+    if (hydration.phase === "global") {
+      if (Math.abs(playback.speed - preferences.playback.speed) > 0.001) return sendOnce(`speed:${preferences.playback.speed}`, () => playback.onSetSpeed(preferences.playback.speed));
+      if (Math.abs(playback.volume - preferences.playback.volume) > 0.001) return sendOnce(`volume:${preferences.playback.volume}`, () => playback.onSetVolume(preferences.playback.volume));
+      if (playback.muted !== preferences.playback.muted) return sendOnce(`muted:${preferences.playback.muted}`, () => playback.onSetMuted ? playback.onSetMuted(preferences.playback.muted) : playback.onToggleMute());
+      advance("loop");
+    }
+    if (hydration.phase === "loop") {
+      if (source.loopEnabled && source.loopASeconds !== null && source.loopBSeconds !== null && source.loopBSeconds <= playback.durationSeconds) {
+        if (playback.loopASeconds !== source.loopASeconds) return sendOnce(`loop-a:${source.loopASeconds}`, () => playback.onSetLoopA(source.loopASeconds!));
+        if (playback.loopBSeconds !== source.loopBSeconds) return sendOnce(`loop-b:${source.loopBSeconds}`, () => playback.onSetLoopB(source.loopBSeconds!));
+      } else if (playback.loopEnabled) {
+        return sendOnce("loop:clear", playback.onClearLoop);
+      }
+      advance("subtitle");
+    }
+    if (hydration.phase === "subtitle") {
+      if (!source.subtitlesEnabled) {
+        if (playback.activeSubtitleId !== null) return sendOnce("subtitle:off", playback.onSubtitleOff);
+      } else {
+        const target = source.subtitleTrackId !== null && playback.subtitleTracks.some((track) => track.id === source.subtitleTrackId)
+          ? source.subtitleTrackId
+          : playback.activeSubtitleId ?? playback.subtitleTracks[0]?.id ?? null;
+        if (target !== null && playback.activeSubtitleId !== target) return sendOnce(`subtitle:${target}`, () => playback.onSetSubtitleTrack(target));
+      }
+      advance("resume");
+    }
+    if (hydration.phase === "resume") {
+      if (playback.durationSeconds <= 0) return;
+      const target = resumablePosition(source.positionSeconds, playback.durationSeconds);
+      if (target > 0 && Math.abs(playback.positionSeconds - target) > 1) return sendOnce(`resume:${target.toFixed(3)}`, () => playback.onSeek(target));
+      advance("complete");
+    }
+  }, [playback, preferences]);
+
+  useEffect(() => {
+    if (!playback?.sessionId || !playback.sourceIdentity) return;
+    const key = `${playback.sessionId}:${playback.sourceIdentity}`;
+    if (hydrationRef.current?.key !== key || hydrationRef.current.phase !== "complete") return;
+    if (positionCheckpointRef.current !== null) return;
+    positionCheckpointRef.current = setTimeout(() => {
+      const latest = latestPlaybackRef.current;
+      const current = latestPreferencesRef.current;
+      if (!latest?.sourceIdentity) {
+        positionCheckpointRef.current = null;
+        return;
+      }
+      const sourceKey = sourcePreferenceKey(latest.sourceIdentity);
+      const previous = getVideoPlayerSourcePreferences(current, sourceKey);
+      persistPreferences({
+        ...current,
+        sources: {
+          ...current.sources,
+          [sourceKey]: {
+            positionSeconds: latest.positionSeconds,
+            loopEnabled: latest.loopEnabled,
+            loopASeconds: latest.loopEnabled ? latest.loopASeconds : null,
+            loopBSeconds: latest.loopEnabled ? latest.loopBSeconds : null,
+            subtitlesEnabled: latest.activeSubtitleId !== null,
+            subtitleTrackId: latest.activeSubtitleId ?? previous.subtitleTrackId,
+          },
+        },
+      });
+      positionCheckpointRef.current = null;
+    }, 1000);
+  }, [playback?.sessionId, playback?.sourceIdentity, playback?.positionSeconds, playback?.loopEnabled, playback?.loopASeconds, playback?.loopBSeconds, playback?.activeSubtitleId]);
+
+  useEffect(() => () => {
+    if (positionCheckpointRef.current !== null) clearTimeout(positionCheckpointRef.current);
+    const latest = latestPlaybackRef.current;
+    if (!latest?.sessionId || !latest.sourceIdentity) return;
+    const key = `${latest.sessionId}:${latest.sourceIdentity}`;
+    if (hydrationRef.current?.key !== key || hydrationRef.current.phase !== "complete") return;
+    const current = latestPreferencesRef.current;
+    const sourceKey = sourcePreferenceKey(latest.sourceIdentity);
+    const previous = getVideoPlayerSourcePreferences(current, sourceKey);
+    saveVideoPlayerPreferences(parseVideoPlayerPreferences({
+      ...current,
+      sources: {
+        ...current.sources,
+        [sourceKey]: {
+          positionSeconds: latest.positionSeconds,
+          loopEnabled: latest.loopEnabled,
+          loopASeconds: latest.loopEnabled ? latest.loopASeconds : null,
+          loopBSeconds: latest.loopEnabled ? latest.loopBSeconds : null,
+          subtitlesEnabled: latest.activeSubtitleId !== null,
+          subtitleTrackId: latest.activeSubtitleId ?? previous.subtitleTrackId,
+        },
+      },
+    }), preferenceStorage);
+  }, []);
+
   useLayoutEffect(() => {
     if (!playback || !controlsRef.current) return;
     const controls = controlsRef.current;
     const publish = () => {
-      const next = Math.round(controlsVisible && preferences.subtitles.basePosition === "bottom" ? controls.getBoundingClientRect().height + 12 : 0);
-      if (next !== lastInsetRef.current) {
-        lastInsetRef.current = next;
-        sendInsetRef.current?.(next);
+      const rect = controls.getBoundingClientRect();
+      const viewportWidth = Math.max(1, document.documentElement.clientWidth || window.innerWidth);
+      const viewportHeight = Math.max(1, document.documentElement.clientHeight || window.innerHeight);
+      // The chrome is bottom anchored. Its measured height is the complete
+      // overlap even while the CSS reveal/hide transform is in flight.
+      const visibleTop = Math.max(0, rect.top);
+      const visibleBottom = Math.min(viewportHeight, rect.bottom);
+      const overlap = Math.max(0, visibleBottom - visibleTop);
+      const clearsBottomControls = preferences.subtitles.basePosition === "source"
+        || preferences.subtitles.basePosition === "bottom";
+      const next =
+        controlsVisible && clearsBottomControls && overlap > 0
+          ? Math.min(1, (overlap + 16) / viewportHeight)
+          : 0;
+      const deviceScaleFactor = Math.max(0.1, window.devicePixelRatio || 1);
+      const measurementKey = [
+        next.toFixed(6),
+        Math.round(overlap),
+        Math.round(viewportWidth),
+        Math.round(viewportHeight),
+        deviceScaleFactor.toFixed(3),
+        effectiveFullscreen ? "fullscreen" : "windowed",
+        playback.presentation,
+      ].join(":");
+      if (measurementKey !== lastInsetRef.current) {
+        lastInsetRef.current = measurementKey;
+        sendInsetRef.current?.({
+          safeAreaBottomRatio: next,
+          overlapCssPixels: controlsVisible ? overlap : 0,
+          viewportWidthCssPixels: viewportWidth,
+          viewportHeightCssPixels: viewportHeight,
+          deviceScaleFactor,
+        });
       }
     };
     publish();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
     observer?.observe(controls);
     window.addEventListener("resize", publish);
-    return () => { observer?.disconnect(); window.removeEventListener("resize", publish); };
-  }, [controlsVisible, Boolean(playback), preferences.subtitles.basePosition, preferences.subtitles.verticalAdjustment]);
+    window.visualViewport?.addEventListener("resize", publish);
+    window.visualViewport?.addEventListener("scroll", publish);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", publish);
+      window.visualViewport?.removeEventListener("resize", publish);
+      window.visualViewport?.removeEventListener("scroll", publish);
+    };
+  }, [controlsVisible, Boolean(playback), preferences.subtitles.basePosition, preferences.subtitles.verticalAdjustment, effectiveFullscreen, playback?.presentation]);
 
   useEffect(() => () => {
     if (singleClickTimerRef.current !== null) clearTimeout(singleClickTimerRef.current);
@@ -356,7 +523,13 @@ export default function VideoPlayerPrototype({
   function persistPreferences(next: VideoPlayerPreferences) {
     const normalized = parseVideoPlayerPreferences(next);
     setPreferences(normalized);
-    if (!saveVideoPlayerPreferences(normalized)) setFeedback(t("videoPlayer.preferences.saveFailed"));
+    if (!saveVideoPlayerPreferences(normalized, preferenceStorage)) setFeedback(t("videoPlayer.preferences.saveFailed"));
+  }
+
+  function closeSettingsMenu() {
+    setSettingsOpen(false);
+    setSettingsView("root");
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   }
 
   function handleVideoSurfaceClick(event: ReactMouseEvent<HTMLElement>) {
@@ -377,9 +550,12 @@ export default function VideoPlayerPrototype({
   }
 
   function toggleMute() {
-    setVolumeExpanded(true);
     if (playback) {
       playback.onToggleMute();
+      persistPreferences({
+        ...preferences,
+        playback: { ...preferences.playback, muted: !effectiveMuted },
+      });
       return;
     }
     if (volume === 0) {
@@ -414,11 +590,10 @@ export default function VideoPlayerPrototype({
       aria-label={t("videoPlayer.windowLabel")}
       className={`relative flex min-h-0 flex-col overflow-hidden text-slate-950 dark:text-slate-50 ${windowHost === "composition" ? "h-full bg-transparent" : "h-screen bg-slate-50 dark:bg-slate-950"}`}
       data-auxiliary-window="video-player"
-      data-responsive-tiers="normal compact minimum"
+      data-responsive-tiers="main-full-functionality"
       data-theme-source="sakurava-appearance"
       onPointerMove={revealControls}
       onPointerDown={revealControls}
-      onKeyDown={revealControls}
     >
       <section onClick={handleVideoSurfaceClick} onDoubleClick={handleVideoSurfaceDoubleClick} className={`relative flex min-h-[160px] flex-1 items-center justify-center overflow-hidden ${playback ? "bg-transparent" : "bg-[radial-gradient(circle_at_50%_25%,rgba(236,72,153,0.20),transparent_37%),linear-gradient(135deg,#111827,#0f172a_58%,#020617)]"}`}>
         <div className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-md bg-black/45 px-2.5 py-1.5 text-white backdrop-blur-sm">
@@ -441,11 +616,23 @@ export default function VideoPlayerPrototype({
         aria-label={t("videoPlayer.controls")}
         aria-hidden={!controlsVisible}
         inert={!controlsVisible}
-        onPointerEnter={() => setPointerInControls(true)}
-        onPointerLeave={() => setPointerInControls(false)}
-        onFocusCapture={() => setControlsFocused(true)}
-        onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setControlsFocused(false); }}
-        className={`absolute inset-x-0 bottom-0 z-40 shrink-0 border-t border-slate-200 bg-white px-2.5 py-2.5 transition duration-200 dark:border-slate-700 dark:bg-slate-900 sm:px-4 ${controlsVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0"}`}
+        onFocusCapture={(event) => {
+          // React portal events still bubble through this component tree. Only
+          // controls physically inside the transport may hold its visibility;
+          // floating menus keep using the shared idle deadline.
+          if (event.currentTarget.contains(event.target as Node)) {
+            acquireHold("controls-focus");
+          }
+        }}
+        onBlurCapture={(event) => {
+          if (
+            event.currentTarget.contains(event.target as Node) &&
+            !event.currentTarget.contains(event.relatedTarget as Node | null)
+          ) {
+            releaseHold("controls-focus");
+          }
+        }}
+        className={`absolute inset-x-0 bottom-0 z-40 shrink-0 border-t border-slate-200 bg-white px-2.5 py-2.5 transition-opacity duration-150 dark:border-slate-700 dark:bg-slate-900 sm:px-4 ${controlsVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
       >
         <div data-testid="timeline-row" className="flex min-w-0 items-center gap-3">
           <label className="sr-only" htmlFor="video-player-timeline">
@@ -472,26 +659,28 @@ export default function VideoPlayerPrototype({
             volume={effectiveVolume}
             onExpand={() => setVolumeExpanded(true)}
             onCollapse={() => setVolumeExpanded(false)}
+            onInteractionStart={() => acquireHold("volume-adjust")}
+            onInteractionEnd={() => releaseHold("volume-adjust")}
             muted={effectiveMuted}
             onToggleMute={toggleMute}
             onVolumeChange={(next) => {
               if (playback) {
                 playback.onSetVolume(next);
-                return;
+                persistPreferences({ ...preferences, playback: { ...preferences.playback, volume: next, muted: false } });
+              } else {
+                setVolume(next);
+                if (next > 0) setLastAudibleVolume(next);
               }
-              setVolume(next);
-              if (next > 0) setLastAudibleVolume(next);
             }}
           />
         </div>
 
-        <div data-testid="transport-row" className="mt-2.5 flex h-9 min-w-0 items-center justify-between gap-2 overflow-hidden">
-          <div className="flex min-w-0 shrink items-center gap-1.5 overflow-hidden">
+        <div data-testid="transport-row" className="mt-2.5 flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <ControlButton
               label={t("videoPlayer.backward", { step: step.label })}
               onClick={() => performStep("backward")}
               icon={<ArrowLeft size={17} />}
-              className="max-[430px]:hidden"
             />
             <ControlButton
               label={effectivePlaying ? t("videoPlayer.pause") : t("videoPlayer.play")}
@@ -504,18 +693,17 @@ export default function VideoPlayerPrototype({
               label={t("videoPlayer.forward", { step: step.label })}
               onClick={() => performStep("forward")}
               icon={<ArrowRight size={17} />}
-              className="max-[430px]:hidden"
             />
             <button
               type="button"
               aria-label={t("videoPlayer.step.aria", { step: t(step.descriptionKey) })}
               title={t("videoPlayer.step.aria", { step: t(step.descriptionKey) })}
               onClick={() => setStepIndex((value) => (value + 1) % STEP_MODES.length)}
-              className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 max-[680px]:hidden"
+              className="inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             >
               {step.label}
             </button>
-            <div className="flex min-w-0 items-center gap-1.5 max-[680px]:hidden">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 aria-expanded={loopOpen}
@@ -552,7 +740,6 @@ export default function VideoPlayerPrototype({
               }}
               icon={captureState === "success" ? <Check size={16} /> : <Camera size={16} />}
               disabled={!playback?.onCaptureScreenshot || captureState === "capturing"}
-              className="max-[500px]:hidden"
             />
             <div className="relative">
               <button
@@ -562,7 +749,7 @@ export default function VideoPlayerPrototype({
                 aria-expanded={settingsOpen}
                 onClick={() => {
                   if (settingsOpen) {
-                    setSettingsOpen(false);
+                    closeSettingsMenu();
                   } else {
                     setSettingsView("root");
                     setSettingsOpen(true);
@@ -576,12 +763,17 @@ export default function VideoPlayerPrototype({
                 <PlayerSettingsMenu
                   settingsRef={settingsRef}
                   triggerRef={settingsButtonRef}
+                  onDismiss={closeSettingsMenu}
                   view={settingsView}
                   speed={effectiveSpeed}
                   subtitle={playback ? playback.activeSubtitleId === null ? "off" : `track:${playback.activeSubtitleId}` : subtitle}
                   subtitleTracks={playback?.subtitleTracks}
                   onViewChange={setSettingsView}
-                  onSpeedChange={(next) => playback ? playback.onSetSpeed(Number.parseFloat(next)) : setSpeed(next)}
+                  onSpeedChange={(next) => {
+                    const value = Number.parseFloat(next);
+                    if (playback) playback.onSetSpeed(value); else setSpeed(next);
+                    persistPreferences({ ...preferences, playback: { ...preferences.playback, speed: value } });
+                  }}
                   onSubtitleChange={(next) => {
                     if (!playback) { setSubtitle(next); return; }
                     if (next === "off") playback.onSubtitleOff();
@@ -589,15 +781,20 @@ export default function VideoPlayerPrototype({
                   }}
                   onLoadExternalSubtitle={playback?.onLoadExternalSubtitle}
                   onOpenExternally={playback?.onOpenExternally}
+                  onOpenContactSheet={playback?.onOpenContactSheet ? async () => {
+                    closeSettingsMenu();
+                    const opened = await playback.onOpenContactSheet?.();
+                    if (!opened) setFeedback(t("contactSheet.generateFailed"));
+                  } : undefined}
                   onOpenShortcuts={() => {
-                    setShortcutOpen(true);
-                    setSettingsOpen(false);
-                    setSettingsView("root");
+                    setVolumeExpanded(false);
+                    closeSettingsMenu();
+                    playback?.onOpenShortcuts?.();
                   }}
                   onOpenSubtitleAppearance={() => {
-                    setSubtitlePreferencesOpen(true);
-                    setSettingsOpen(false);
-                    setSettingsView("root");
+                    setVolumeExpanded(false);
+                    closeSettingsMenu();
+                    playback?.onOpenSubtitleAppearance?.();
                   }}
                 />
               )}
@@ -612,7 +809,6 @@ export default function VideoPlayerPrototype({
               pressed={effectiveFullscreen}
               onClick={() => void toggleFullscreen()}
               icon={effectiveFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-              className="max-[500px]:hidden"
             />
           </div>
         </div>
@@ -623,24 +819,6 @@ export default function VideoPlayerPrototype({
 
       {feedback && <div role="status" className="absolute bottom-28 left-1/2 z-[65] flex -translate-x-1/2 items-center gap-2 rounded-lg bg-black/80 px-3 py-2 text-xs font-semibold text-white shadow-lg"><span>{feedback}</span>{captureState === "success" && lastScreenshotPath && playback?.onOpenScreenshotFolder ? <button type="button" onClick={playback.onOpenScreenshotFolder} className="rounded border border-white/40 px-2 py-1 hover:bg-white/15">{t("videoPlayer.captureOpenFolder")}</button> : null}</div>}
 
-      {shortcutOpen && (
-        <ShortcutDialog
-          shortcuts={shortcutBindings}
-          onCancel={() => setShortcutOpen(false)}
-          onSave={(nextShortcuts) => {
-            setShortcutBindings(nextShortcuts);
-            persistPreferences({ ...preferences, shortcuts: nextShortcuts });
-            setShortcutOpen(false);
-          }}
-        />
-      )}
-      {subtitlePreferencesOpen && <SubtitleSettingsDialog
-        value={preferences.subtitles}
-        delay={subtitleDelay}
-        onChange={(subtitles) => persistPreferences({ ...preferences, subtitles })}
-        onDelayChange={(seconds) => { setSubtitleDelay(seconds); playback?.onSetSubtitleDelay?.(seconds); }}
-        onClose={() => setSubtitlePreferencesOpen(false)}
-      />}
     </main>
   );
 }
@@ -653,7 +831,7 @@ function LoopMarker({ label, value, onClick }: { label: string; value: number | 
   return <button type="button" aria-label={`${label} ${value === null ? "unset" : formatTime(value)}`} onClick={onClick} className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-slate-700 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 dark:text-slate-100 dark:hover:bg-slate-700"><span className="text-slate-500 dark:text-slate-400 max-[920px]:sr-only">{label}</span><span className="font-mono tabular-nums">{value === null ? "—" : formatTime(value)}</span></button>;
 }
 
-const VolumeControl = ({ expanded, volume, muted, onExpand, onCollapse, onToggleMute, onVolumeChange, ref }: { expanded: boolean; volume: number; muted: boolean; onExpand: () => void; onCollapse: () => void; onToggleMute: () => void; onVolumeChange: (value: number) => void; ref: RefObject<HTMLDivElement | null> }) => {
+const VolumeControl = ({ expanded, volume, muted, onExpand, onCollapse, onInteractionStart, onInteractionEnd, onToggleMute, onVolumeChange, ref }: { expanded: boolean; volume: number; muted: boolean; onExpand: () => void; onCollapse: () => void; onInteractionStart: () => void; onInteractionEnd: () => void; onToggleMute: () => void; onVolumeChange: (value: number) => void; ref: RefObject<HTMLDivElement | null> }) => {
   const t = useTranslation();
   const icon = muted || volume === 0 ? <VolumeX size={16} /> : volume < 45 ? <Volume1 size={16} /> : <Volume2 size={16} />;
   function handleBlur(event: FocusEvent<HTMLDivElement>) { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onCollapse(); }
@@ -661,10 +839,10 @@ const VolumeControl = ({ expanded, volume, muted, onExpand, onCollapse, onToggle
     if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
     if (!ref.current?.contains(document.activeElement)) onCollapse();
   }
-  return <div ref={ref} data-testid="volume-control" className="relative flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800" onMouseEnter={onExpand} onMouseLeave={handleMouseLeave} onFocusCapture={onExpand} onBlurCapture={handleBlur}><button type="button" aria-label={muted || volume === 0 ? t("videoPlayer.volume.unmute") : t("videoPlayer.volume.mute")} aria-pressed={muted || volume === 0} onClick={() => { onExpand(); onToggleMute(); }} className="inline-flex size-8 shrink-0 items-center justify-center text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sakura-400 dark:text-slate-100">{icon}</button>{expanded && <div data-testid="volume-interaction-bridge" className="absolute bottom-full right-0 z-20 flex w-10 flex-col pb-2"><div data-testid="volume-vertical-slider" className="flex h-36 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"><label className="sr-only" htmlFor="video-player-volume">{t("videoPlayer.volume")}</label><input id="video-player-volume" type="range" min="0" max="100" value={volume} aria-valuetext={`${Math.round(volume)}%`} onPointerDown={onExpand} onChange={(event) => onVolumeChange(Number(event.target.value))} style={{ writingMode: "vertical-lr", direction: "rtl" }} className="h-28 w-5 cursor-pointer accent-sakura-500" /></div></div>}</div>;
+  return <div ref={ref} data-testid="volume-control" className="relative flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800" onMouseEnter={onExpand} onMouseLeave={handleMouseLeave} onFocusCapture={onExpand} onBlurCapture={handleBlur}><button type="button" aria-label={muted || volume === 0 ? t("videoPlayer.volume.unmute") : t("videoPlayer.volume.mute")} aria-pressed={muted || volume === 0} onClick={() => { onExpand(); onToggleMute(); }} className="inline-flex size-8 shrink-0 items-center justify-center text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sakura-400 dark:text-slate-100">{icon}</button>{expanded && <div data-testid="volume-interaction-bridge" className="absolute bottom-full right-0 z-20 flex w-10 flex-col pb-2"><div data-testid="volume-vertical-slider" className="flex h-36 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"><label className="sr-only" htmlFor="video-player-volume">{t("videoPlayer.volume")}</label><input id="video-player-volume" type="range" min="0" max="100" value={volume} aria-valuetext={`${Math.round(volume)}%`} onPointerDown={() => { onExpand(); onInteractionStart(); }} onPointerUp={onInteractionEnd} onPointerCancel={onInteractionEnd} onBlur={onInteractionEnd} onChange={(event) => onVolumeChange(Number(event.target.value))} style={{ writingMode: "vertical-lr", direction: "rtl" }} className="h-28 w-5 cursor-pointer accent-sakura-500" /></div></div>}</div>;
 };
 
-function PlayerSettingsMenu({ settingsRef, triggerRef, view, speed, subtitle, subtitleTracks, onViewChange, onSpeedChange, onSubtitleChange, onLoadExternalSubtitle, onOpenExternally, onOpenShortcuts, onOpenSubtitleAppearance }: { settingsRef: RefObject<HTMLDivElement | null>; triggerRef: RefObject<HTMLButtonElement | null>; view: SettingsView; speed: string; subtitle: string; subtitleTracks?: Array<{ id: number; label: string }>; onViewChange: (view: SettingsView) => void; onSpeedChange: (value: string) => void; onSubtitleChange: (value: string) => void; onLoadExternalSubtitle?: () => void; onOpenExternally?: () => void; onOpenShortcuts: () => void; onOpenSubtitleAppearance: () => void }) {
+function PlayerSettingsMenu({ settingsRef, triggerRef, view, speed, subtitle, subtitleTracks, onDismiss, onViewChange, onSpeedChange, onSubtitleChange, onLoadExternalSubtitle, onOpenExternally, onOpenContactSheet, onOpenShortcuts, onOpenSubtitleAppearance }: { settingsRef: RefObject<HTMLDivElement | null>; triggerRef: RefObject<HTMLButtonElement | null>; view: SettingsView; speed: string; subtitle: string; subtitleTracks?: Array<{ id: number; label: string }>; onDismiss: () => void; onViewChange: (view: SettingsView) => void; onSpeedChange: (value: string) => void; onSubtitleChange: (value: string) => void; onLoadExternalSubtitle?: () => void; onOpenExternally?: () => void; onOpenContactSheet?: () => void; onOpenShortcuts: () => void; onOpenSubtitleAppearance: () => void }) {
   const t = useTranslation();
   const [position, setPosition] = useState({ left: 8, bottom: 64, width: 288, maxHeight: 320 });
   const playbackSpeedRef = useRef<HTMLButtonElement | null>(null);
@@ -721,21 +899,31 @@ function PlayerSettingsMenu({ settingsRef, triggerRef, view, speed, subtitle, su
     : t("videoPlayer.settings.subtitleCC");
 
   return createPortal(
-    <div
-      ref={settingsRef}
-      role="menu"
-      data-player-overlay="settings"
-      data-settings-view={view}
-      style={position}
-      className="fixed z-[70] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 text-sm text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-    >
+    <>
+      <div
+        aria-hidden="true"
+        data-testid="player-settings-dismiss-layer"
+        className="fixed inset-0 z-[69]"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onDismiss();
+        }}
+      />
+      <div
+        ref={settingsRef}
+        role="menu"
+        data-player-overlay="settings"
+        data-settings-view={view}
+        style={position}
+        className="fixed z-[70] overflow-y-auto rounded-xl border border-white/80 bg-white/80 p-2 text-sm text-slate-950 shadow-2xl ring-1 ring-slate-900/15 backdrop-blur-xl dark:border-slate-500/80 dark:bg-slate-950/80 dark:text-white dark:ring-white/15"
+      >
       {view === "root" ? (
         <>
           <SettingsMenuEntry buttonRef={playbackSpeedRef} label={t("videoPlayer.settings.speed")} onClick={() => openChild("playback-speed")} />
           <SettingsMenuEntry buttonRef={subtitleRef} label={t("videoPlayer.settings.subtitleCC")} onClick={() => openChild("subtitle")} />
-          <SettingsMenuEntry label={t("videoPlayer.settings.subtitleAppearance")} popup="dialog" onClick={onOpenSubtitleAppearance} />
           <SettingsMenuEntry label={t("videoPlayer.settings.shortcuts")} popup="dialog" onClick={onOpenShortcuts} />
-          <button type="button" role="menuitem" disabled aria-disabled="true" className="flex w-full cursor-not-allowed items-center justify-between rounded-md px-2 py-2 text-left text-xs text-slate-400"><span>{t("videoPlayer.settings.sheetThumbnail")}</span><ChevronRight size={15} aria-hidden="true" /></button>
+          <button type="button" role="menuitem" disabled={!onOpenContactSheet} aria-disabled={!onOpenContactSheet} onClick={onOpenContactSheet} className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs ${onOpenContactSheet ? "font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 dark:text-slate-100 dark:hover:bg-slate-800" : "cursor-not-allowed text-slate-400"}`}><span>{t("videoPlayer.settings.sheetThumbnail")}</span><ChevronRight size={15} aria-hidden="true" /></button>
           <div className="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700"><button type="button" role="menuitem" disabled={!onOpenExternally} aria-disabled={!onOpenExternally} onClick={onOpenExternally} className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs ${onOpenExternally ? "font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 dark:text-slate-100 dark:hover:bg-slate-800" : "cursor-not-allowed text-slate-400"}`}><span>{t("videoPlayer.settings.openExternally")}</span><ExternalLink size={13} aria-hidden="true" /></button></div>
         </>
       ) : (
@@ -744,24 +932,30 @@ function PlayerSettingsMenu({ settingsRef, triggerRef, view, speed, subtitle, su
           <div className="border-t border-slate-200 pt-1 dark:border-slate-700">
             {view === "playback-speed"
               ? ["0.25x", "0.5x", "1x", "1.5x", "2x", "3x"].map((option) => <button key={option} type="button" role="menuitemradio" aria-checked={speed === option} onClick={() => onSpeedChange(option)} className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs font-medium ${speed === option ? "bg-sakura-50 text-sakura-700 dark:bg-sakura-950/40 dark:text-sakura-200" : "hover:bg-slate-50 dark:hover:bg-slate-800"}`}><span>{option}</span>{speed === option && <Check size={13} aria-hidden="true" />}</button>)
-              : [
+              : <>
+                {[
                   { value: "off", label: t("videoPlayer.settings.subtitleOff"), disabled: false },
                   ...(subtitleTracks === undefined
                     ? [{ value: "embedded", label: t("videoPlayer.settings.embeddedTrack"), disabled: false }]
                     : subtitleTracks.map((track) => ({ value: `track:${track.id}`, label: track.label, disabled: false }))),
                   { value: "srt", label: t("videoPlayer.settings.loadSrt"), disabled: !onLoadExternalSubtitle },
                 ].map(({ value, label, disabled }) => <button key={value} type="button" role="menuitemradio" aria-checked={subtitle === value} disabled={disabled} aria-disabled={disabled} onClick={() => value === "srt" ? onLoadExternalSubtitle?.() : onSubtitleChange(value)} className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs font-medium ${disabled ? "cursor-not-allowed text-slate-400" : subtitle === value ? "bg-sakura-50 text-sakura-700 dark:bg-sakura-950/40 dark:text-sakura-200" : "hover:bg-slate-50 dark:hover:bg-slate-800"}`}><span className="flex items-center gap-2"><Subtitles size={13} aria-hidden="true" />{label}</span>{subtitle === value && <Check size={13} aria-hidden="true" />}</button>)}
+                <div className="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700">
+                  <SettingsMenuEntry label={t("videoPlayer.settings.subtitleAppearance")} popup="dialog" onClick={onOpenSubtitleAppearance} />
+                </div>
+              </>}
           </div>
         </>
       )}
-    </div>,
+      </div>
+    </>,
     document.body,
   );
 }
 
 function SettingsMenuEntry({ buttonRef, label, popup = "menu", onClick }: { buttonRef?: RefObject<HTMLButtonElement | null>; label: string; popup?: "menu" | "dialog"; onClick: () => void }) { return <button ref={buttonRef} type="button" role="menuitem" aria-haspopup={popup} onClick={onClick} className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sakura-400 dark:text-slate-100 dark:hover:bg-slate-800"><span>{label}</span><ChevronRight size={15} aria-hidden="true" /></button>; }
 
-function ShortcutDialog({ shortcuts: initialShortcuts, onCancel, onSave }: { shortcuts: Record<ShortcutAction, string>; onCancel: () => void; onSave: (shortcuts: Record<ShortcutAction, string>) => void }) {
+export function ShortcutDialog({ shortcuts: initialShortcuts, onCancel, onSave, feedback }: { shortcuts: Record<ShortcutAction, string>; onCancel: () => void; onSave: (shortcuts: Record<ShortcutAction, string>) => void; feedback?: string | null }) {
   const t = useTranslation();
   const [shortcuts, setShortcuts] = useState(initialShortcuts);
   const [listeningAction, setListeningAction] = useState<ShortcutAction | null>(null);
@@ -799,17 +993,15 @@ function ShortcutDialog({ shortcuts: initialShortcuts, onCancel, onSave }: { sho
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/55 p-4">
-      <section role="dialog" aria-modal="true" aria-labelledby="shortcut-title" className="max-h-full w-full max-w-3xl overflow-auto rounded-xl border border-slate-200 bg-white p-5 text-slate-900 shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="shortcut-title" className="text-lg font-semibold">{t("videoPlayer.shortcuts.title")}</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("videoPlayer.shortcuts.description")}</p>
-            <p id="shortcut-capture-help" className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t("videoPlayer.shortcuts.captureHint")}</p>
-          </div>
-          <ControlButton label={t("common.close")} onClick={onCancel} icon={<X size={16} />} />
-        </div>
-        <div className="mt-5 overflow-x-auto">
+    <PlayerSettingsPanel
+      title={t("videoPlayer.shortcuts.title")}
+      description={t("videoPlayer.shortcuts.description")}
+      onClose={onCancel}
+      footer={<div className="flex flex-wrap items-center justify-between gap-3"><button type="button" onClick={() => { setShortcuts(VIDEO_PLAYER_SHORTCUT_DEFAULTS); setListeningAction(null); }} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"><RotateCcw size={15} />{t("videoPlayer.shortcuts.reset")}</button><div className="flex gap-2"><button type="button" onClick={onCancel} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800">{t("common.cancel")}</button><button type="button" disabled={hasConflict} onClick={() => onSave(shortcuts)} className="h-9 rounded-lg bg-sakura-500 px-3 text-sm font-semibold text-white hover:bg-sakura-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-700">{t("common.save")}</button></div></div>}
+    >
+        {feedback ? <p role="alert" className="mb-4 rounded-lg border border-rose-300 bg-rose-50/90 px-3 py-2 text-xs font-semibold text-rose-800 dark:border-rose-700 dark:bg-rose-950/80 dark:text-rose-100">{feedback}</p> : null}
+        <p id="shortcut-capture-help" className="mb-4 text-xs text-slate-500 dark:text-slate-400">{t("videoPlayer.shortcuts.captureHint")}</p>
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
               <tr><th className="pb-2">{t("videoPlayer.shortcuts.function")}</th><th className="pb-2">{t("videoPlayer.shortcuts.descriptionColumn")}</th><th className="pb-2">{t("videoPlayer.shortcuts.shortcut")}</th></tr>
@@ -852,15 +1044,7 @@ function ShortcutDialog({ shortcuts: initialShortcuts, onCancel, onSave }: { sho
             </tbody>
           </table>
         </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={() => { setShortcuts(VIDEO_PLAYER_SHORTCUT_DEFAULTS); setListeningAction(null); }} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"><RotateCcw size={15} />{t("videoPlayer.shortcuts.reset")}</button>
-          <div className="flex gap-2">
-            <button type="button" onClick={onCancel} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800">{t("common.cancel")}</button>
-            <button type="button" disabled={hasConflict} onClick={() => onSave(shortcuts)} className="h-9 rounded-lg bg-sakura-500 px-3 text-sm font-semibold text-white hover:bg-sakura-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-700">{t("common.save")}</button>
-          </div>
-        </div>
-      </section>
-    </div>
+    </PlayerSettingsPanel>
   );
 }
 

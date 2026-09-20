@@ -6,7 +6,6 @@ import {
   SquareArrowOutUpRight,
   Volume2,
   VolumeX,
-  X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent, type ReactNode } from "react";
 import { useTranslation } from "../../lib/LanguageContext";
@@ -14,7 +13,6 @@ import { isTauriRuntimeAvailable } from "../../runtime/tauriClient";
 import {
   applyCurrentMiniPlayerGeometry,
   calculateMiniPlayerResize,
-  closeCurrentAuxiliaryWindow,
   createCurrentMiniPlayerResizeSession,
   listenForMiniPlayerPayload,
   parseVideoResolution,
@@ -73,7 +71,6 @@ export function MiniPlayerContent({
     onSetVolume: (volume: number) => void;
     onToggleMute: () => void;
     onReturn: () => void;
-    onClose: () => void;
   };
   windowHost?: "tauri" | "composition";
 }) {
@@ -92,11 +89,7 @@ export function MiniPlayerContent({
   const activePointerRef = useRef<number | null>(null);
   const pendingGeometryRef = useRef<MiniPlayerWindowGeometry | null>(null);
   const applyingGeometryRef = useRef(false);
-  const [pointerInControls, setPointerInControls] = useState(false);
-  const { visible: controlsVisible, reveal: revealControls } = usePlayerControlsVisibility({
-    playing: effectivePlaying,
-    held: !effectivePlaying || pointerInControls,
-  });
+  const { visible: controlsVisible, reveal: revealControls } = usePlayerControlsVisibility();
 
   function handleSurfaceDoubleClick(event: ReactMouseEvent<HTMLElement>) {
     if ((event.target as HTMLElement).closest("button,input,a")) return;
@@ -191,7 +184,7 @@ export function MiniPlayerContent({
   return (
     <main
       aria-label={t("videoPlayer.mini.windowLabel")}
-      className={`relative h-screen min-h-0 w-screen overflow-hidden text-slate-50 ${playback && windowHost === "composition" ? "bg-transparent" : "bg-slate-950"}`}
+      className={`relative h-screen min-h-0 w-screen overflow-hidden text-slate-900 dark:text-slate-50 ${playback && windowHost === "composition" ? "bg-transparent" : "bg-slate-50 dark:bg-slate-950"}`}
       data-auxiliary-window="mini-player"
       data-pip-aspect-ratio={
         dimensions ? `${dimensions.width}/${dimensions.height}` : "unknown"
@@ -242,11 +235,6 @@ export function MiniPlayerContent({
           onClick={() => playback ? playback.onReturn() : void returnToVideoPlayerWindow()}
           icon={<SquareArrowOutUpRight size={15} />}
         />
-        <OverlayButton
-          label={t("common.close")}
-          onClick={() => playback ? playback.onClose() : void closeCurrentAuxiliaryWindow()}
-          icon={<X size={16} />}
-        />
       </div>
 
       <div
@@ -286,8 +274,6 @@ export function MiniPlayerContent({
         aria-label={t("videoPlayer.mini.controls")}
         aria-hidden={!controlsVisible}
         inert={!controlsVisible}
-        onPointerEnter={() => setPointerInControls(true)}
-        onPointerLeave={() => setPointerInControls(false)}
         className={`absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 pb-2 pt-10 transition duration-200 ${controlsVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0"}`}
         data-overlay-layer="bottom-controls"
       >

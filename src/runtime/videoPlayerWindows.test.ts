@@ -226,11 +226,33 @@ describe("videoPlayerWindows", () => {
     expect(windowMocks.construct).toHaveBeenCalledWith(
       CONTACT_SHEET_WINDOW_LABEL,
       expect.objectContaining({
+        closable: true,
         decorations: true,
+        maximizable: false,
+        minimizable: false,
         resizable: true,
         title: "Sakurava Contact Sheet",
+        transparent: true,
         url: "/?sakuravaWindow=contact-sheet",
+        width: 1100,
+        height: 760,
+        minWidth: 720,
+        minHeight: 560,
+        alwaysOnTop: undefined,
       }),
+    );
+    expect(windowMocks.setFocus).toHaveBeenCalledTimes(1);
+  });
+
+  it("focuses an existing Contact Sheet and delivers its newest payload", async () => {
+    windowMocks.getByLabel.mockResolvedValue({ setFocus: windowMocks.setFocus });
+    await expect(openContactSheetWindow({ ...payload, sourceIdentity: "V-2608-0002" })).resolves.toEqual({ mode: "window" });
+    expect(windowMocks.construct).not.toHaveBeenCalled();
+    expect(windowMocks.setFocus).toHaveBeenCalledTimes(1);
+    expect(windowMocks.emitTo).toHaveBeenCalledWith(
+      { kind: "WebviewWindow", label: CONTACT_SHEET_WINDOW_LABEL },
+      "contact-sheet:payload",
+      expect.objectContaining({ sourceIdentity: "V-2608-0002" }),
     );
   });
 

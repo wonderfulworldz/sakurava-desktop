@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u32 = 4;
+pub const PROTOCOL_VERSION: u32 = 6;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -77,6 +77,14 @@ pub enum HostToMainKind {
     FatalHostError {
         error: IpcError,
     },
+    ContactSheetRequested {
+        source_identity: String,
+        display_name: String,
+        resolution: String,
+        duration_seconds: f64,
+        subtitle_id: Option<i64>,
+        subtitle_path: Option<String>,
+    },
     OrderlyShutdown,
 }
 
@@ -127,6 +135,9 @@ pub enum PlayerCommandKind {
     CaptureScreenshot,
     OpenScreenshotFolder,
     OpenExternally,
+    OpenContactSheet,
+    OpenSubtitleAppearance,
+    OpenShortcuts,
     EnterFullscreen,
     ExitFullscreen,
     ToggleFullscreen,
@@ -166,6 +177,7 @@ pub struct PlaybackSnapshot {
     pub loop_enabled: bool,
     pub subtitle_tracks: Vec<SubtitleTrack>,
     pub active_subtitle_id: Option<i64>,
+    pub subtitle_delay_seconds: f64,
     pub presentation: String,
     pub fullscreen: bool,
     pub double_click_interval_ms: u32,
@@ -282,6 +294,7 @@ mod tests {
                     selected: true,
                 }],
                 active_subtitle_id: Some(1),
+                subtitle_delay_seconds: 0.0,
                 presentation: "main".into(),
                 fullscreen: false,
                 double_click_interval_ms: 500,

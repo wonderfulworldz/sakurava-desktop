@@ -97,14 +97,17 @@ use crate::safe_filter::{
 };
 use crate::video_player::{
     contact_sheet::{
-        validate_request as validate_contact_sheet_request, ContactSheetGenerateInput,
-        ContactSheetGenerationResult, TrustedContactSheetRequest,
+        validate_request as validate_contact_sheet_request, ContactSheetExtractionProgress,
+        ContactSheetGenerateInput, ContactSheetGenerationResult, TrustedContactSheetRequest,
     },
     manager::{
         PlaybackHostManager, TrustedOpenRequest, VideoPlayerCommandError, VideoPlayerOpenInput,
         VideoPlayerOpenResult,
     },
-    source::{open_media_file_with_default_app, validate_catalog_media_path},
+    source::{
+        open_media_file_with_default_app, validate_catalog_media_path,
+        validate_external_subtitle_path,
+    },
 };
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -1315,19 +1318,47 @@ pub async fn video_contact_sheet_generate(
     .ok_or_else(|| "CONTACT_SHEET_VIDEO_NOT_FOUND".to_string())?;
     let canonical_path = validate_catalog_media_path(&video.media_path)
         .map_err(|error| format!("{}: CONTACT_SHEET_SOURCE_INVALID", error.code()))?;
+    let subtitle_path = if input.subtitles {
+        input
+            .subtitle_path
+            .as_deref()
+            .map(PathBuf::from)
+            .map(|path| {
+                validate_external_subtitle_path(&path)
+                    .map_err(|error| format!("{error}: CONTACT_SHEET_SUBTITLE_INVALID"))
+            })
+            .transpose()?
+    } else {
+        None
+    };
     let request = TrustedContactSheetRequest {
         source_identity: video.sakurava_ref,
+        file_name: canonical_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("Video")
+            .to_string(),
+        file_size_bytes: canonical_path
+            .metadata()
+            .map(|value| value.len())
+            .unwrap_or(0),
         canonical_path,
         display_name: if video.title.trim().is_empty() {
             "Video".into()
         } else {
             video.title
         },
-        grid: input.grid,
+        resolution: video.resolution,
+        rows: input.rows,
+        columns: input.columns,
         width: input.width,
         quality: input.quality,
         timestamp: input.timestamp,
         header: input.header,
+        subtitles: input.subtitles,
+        subtitle_id: input.subtitle_id,
+        subtitle_path,
+        theme: input.theme,
         format: input.format,
     };
     let manager = manager.inner().clone();
@@ -1366,6 +1397,13 @@ pub fn video_contact_sheet_cancel(
     Ok(ContactSheetCancelResult {
         cancelled: manager.cancel_contact_sheet(request_id.as_deref())?,
     })
+}
+
+#[tauri::command]
+pub fn video_contact_sheet_progress(
+    manager: State<'_, PlaybackHostManager>,
+) -> Result<ContactSheetExtractionProgress, String> {
+    manager.contact_sheet_progress()
 }
 
 #[tauri::command]

@@ -34,7 +34,7 @@ describe("MiniPlayerWindow", () => {
     expect(root).toHaveAttribute("data-pip-aspect-ratio", "1920/1080");
     expect(root).toHaveAttribute("data-responsive-tiers", "wide compact minimum");
     expect(root).toHaveAttribute("data-theme-source", "sakurava-appearance");
-    expect(root).toHaveClass("relative", "h-screen", "w-screen", "overflow-hidden", "bg-slate-950");
+    expect(root).toHaveClass("relative", "h-screen", "w-screen", "overflow-hidden", "bg-slate-50", "dark:bg-slate-950");
 
     const media = screen.getByTestId("pip-media-surface");
     expect(media).toHaveClass("absolute", "inset-0", "h-full", "w-full", "object-contain");
@@ -58,7 +58,7 @@ describe("MiniPlayerWindow", () => {
     );
     expect(screen.getByLabelText("Mock video timeline")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Return to normal player" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
     expect(root.querySelectorAll("[data-resize-handle]")).toHaveLength(4);
     expect(
       Array.from(root.querySelectorAll("[data-resize-handle]")).map((handle) =>
@@ -91,7 +91,6 @@ describe("MiniPlayerWindow", () => {
       onSetVolume: vi.fn(),
       onToggleMute: vi.fn(),
       onReturn: vi.fn(),
-      onClose: vi.fn(),
     };
     render(
       <LanguageProvider>
@@ -108,16 +107,14 @@ describe("MiniPlayerWindow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mute" }));
     fireEvent.doubleClick(screen.getByTestId("pip-media-surface"));
     fireEvent.click(screen.getByRole("button", { name: "Return to normal player" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(playback.onPlay).toHaveBeenCalledTimes(1);
     expect(playback.onSeekRelative).toHaveBeenNthCalledWith(1, -10);
     expect(playback.onSeekRelative).toHaveBeenNthCalledWith(2, 10);
     expect(playback.onToggleMute).toHaveBeenCalledTimes(1);
     expect(playback.onReturn).toHaveBeenCalledTimes(2);
-    expect(playback.onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps Return and Close as distinct native-window actions", () => {
+  it("keeps one explicit Return action and removes the redundant custom Close action", () => {
     const returnToPlayer = vi
       .spyOn(videoPlayerWindows, "returnToVideoPlayerWindow")
       .mockResolvedValue(true);
@@ -129,8 +126,8 @@ describe("MiniPlayerWindow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Return to normal player" }));
     expect(returnToPlayer).toHaveBeenCalledTimes(1);
     expect(closePip).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(closePip).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+    expect(closePip).not.toHaveBeenCalled();
   });
 
   it("starts window dragging only from the narrow primary-pointer drag region", () => {

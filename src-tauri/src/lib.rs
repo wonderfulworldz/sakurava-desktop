@@ -26,13 +26,17 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let database = database::prepare_tauri_database(app.handle())
+                .map_err(|message| std::io::Error::new(std::io::ErrorKind::Other, message))?;
             let player_resource_root = app
                 .path()
                 .resource_dir()
                 .map_err(|message| std::io::Error::other(message.to_string()))?;
-            app.manage(PlaybackHostManager::new(player_resource_root));
-            let database = database::prepare_tauri_database(app.handle())
-                .map_err(|message| std::io::Error::new(std::io::ErrorKind::Other, message))?;
+            app.manage(PlaybackHostManager::new(
+                player_resource_root,
+                database.paths.app_data_dir.join("video-player-webview2"),
+                Some(app.handle().clone()),
+            ));
             println!(
                 "Sakurava database initialized: {}",
                 database.paths.database_file.display()
@@ -97,6 +101,7 @@ pub fn run() {
             commands::video_contact_sheet_generate,
             commands::video_contact_sheet_save,
             commands::video_contact_sheet_cancel,
+            commands::video_contact_sheet_progress,
             commands::video_contact_sheet_cleanup,
             commands::video_update,
             commands::video_delete,

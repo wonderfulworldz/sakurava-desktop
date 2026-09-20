@@ -1,15 +1,18 @@
 import VideoPlayerPrototype, { type VideoPlayerPlaybackAdapter } from "./VideoPlayerPrototype";
 import { MiniPlayerContent } from "./MiniPlayerWindow";
 import { useVideoPlayerBridge } from "../../runtime/videoPlayerBridge";
+import PlayerUtilityWindow, { type PlayerUtilityKind } from "./PlayerUtilityWindow";
 
 export default function VideoPlayerProductionRoot() {
   const bridge = useVideoPlayerBridge();
   const snapshot = bridge.snapshot;
-  const presentation = typeof window === "undefined"
+  const requestedPresentation = typeof window === "undefined"
     ? "main"
-    : new URLSearchParams(window.location.search).get("presentation") === "pip"
-      ? "pip"
-      : "main";
+    : new URLSearchParams(window.location.search).get("presentation") ?? "main";
+  if (requestedPresentation === "subtitle-appearance" || requestedPresentation === "shortcuts") {
+    return <PlayerUtilityWindow kind={requestedPresentation as PlayerUtilityKind} />;
+  }
+  const presentation = requestedPresentation === "pip" ? "pip" : "main";
   const playback: VideoPlayerPlaybackAdapter = snapshot ? {
     durationSeconds: snapshot.durationSeconds,
     error: snapshot.error?.message ?? null,
@@ -28,6 +31,7 @@ export default function VideoPlayerProductionRoot() {
     fullscreen: snapshot.fullscreen,
     status: snapshot.status,
     sessionId: snapshot.sessionId,
+    sourceIdentity: snapshot.sourceIdentity,
     onPause: bridge.pause,
     onPlay: bridge.play,
     onSeek: bridge.seekAbsolute,
@@ -41,6 +45,7 @@ export default function VideoPlayerProductionRoot() {
     },
     onSetSpeed: bridge.setSpeed,
     onSetVolume: bridge.setVolume,
+    onSetMuted: bridge.setMuted,
     onToggleMute: bridge.toggleMute,
     onSetLoopA: bridge.setLoopA,
     onSetLoopB: bridge.setLoopB,
@@ -58,6 +63,9 @@ export default function VideoPlayerProductionRoot() {
     onOpenScreenshotFolder: bridge.openScreenshotFolder,
     doubleClickIntervalMs: snapshot.doubleClickIntervalMs,
     onOpenExternally: bridge.openExternally,
+    onOpenContactSheet: async () => bridge.openContactSheet(),
+    onOpenSubtitleAppearance: bridge.openSubtitleAppearance,
+    onOpenShortcuts: bridge.openShortcuts,
     onToggleFullscreen: bridge.toggleFullscreen,
     onEnterPip: bridge.enterPip,
   } : {
@@ -83,6 +91,7 @@ export default function VideoPlayerProductionRoot() {
     onStep: () => undefined,
     onSetSpeed: bridge.setSpeed,
     onSetVolume: bridge.setVolume,
+    onSetMuted: bridge.setMuted,
     onToggleMute: bridge.toggleMute,
     onSetLoopA: bridge.setLoopA,
     onSetLoopB: bridge.setLoopB,
@@ -100,6 +109,8 @@ export default function VideoPlayerProductionRoot() {
     onOpenScreenshotFolder: bridge.openScreenshotFolder,
     doubleClickIntervalMs: 500,
     onOpenExternally: bridge.openExternally,
+    onOpenSubtitleAppearance: bridge.openSubtitleAppearance,
+    onOpenShortcuts: bridge.openShortcuts,
     onToggleFullscreen: bridge.toggleFullscreen,
     onEnterPip: bridge.enterPip,
   };
@@ -125,7 +136,6 @@ export default function VideoPlayerProductionRoot() {
         onSetVolume: playback.onSetVolume,
         onToggleMute: playback.onToggleMute,
         onReturn: bridge.returnFromPip,
-        onClose: bridge.close,
       }}
       windowHost="composition"
     />;

@@ -1,45 +1,65 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$OutputRoot,
-    [string]$CandidateRoot = "C:\Users\Working WW\AppData\Local\Temp\sakurava-mpv-041-production-candidate"
+    [string]$EngineRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
 $expectedMpvHash = "6F312FD78D309B389436307C29066F227046FC64CEC5061D027DCE802BF91286"
+$expectedMpvCommit = "41f6a645068483470267271e1d09966ca3b9f413"
+$expectedFfmpegCommit = "bf1b838f2ab88b4f8fd83443325c782ea0e0f7fa"
+$expectedPatchPath = "patches/mpv/0.41.0-sakurava-rendered-subtitle-geometry.patch"
+$customLibraryName = "libmpv-sakurava-2.dll"
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$candidateRootPath = [System.IO.Path]::GetFullPath($CandidateRoot)
+if ([string]::IsNullOrWhiteSpace($EngineRoot)) {
+    $EngineRoot = Join-Path $repoRoot "src-tauri\target\video-player-engine-runtime\mpv-0.41.0"
+}
+$runtimeRoot = [System.IO.Path]::GetFullPath($EngineRoot)
 $outputRootPath = [System.IO.Path]::GetFullPath($OutputRoot)
-$runtimeRoot = Join-Path $candidateRootPath "runtime\libmpv-0.41.0-gpl-false"
-$candidateManifestPath = Join-Path $candidateRootPath "manifest\production-candidate.json"
-$dependencyManifestPath = Join-Path $candidateRootPath "manifest\dependency-closure.json"
+$engineManifestPath = Join-Path $runtimeRoot "metadata\sakurava-engine-build.json"
+$dependencyManifestPath = Join-Path $runtimeRoot "metadata\dependency-closure.json"
+$legalSourceRoot = Join-Path $runtimeRoot "legal"
 $libmpvPath = Join-Path $runtimeRoot "libmpv-2.dll"
+$customLibmpvPath = Join-Path $runtimeRoot $customLibraryName
 
 if (Test-Path -LiteralPath $outputRootPath) {
     throw "OutputRoot must not already exist: $outputRootPath"
 }
-foreach ($required in @($candidateManifestPath, $dependencyManifestPath, $libmpvPath)) {
+foreach ($required in @($engineManifestPath, $dependencyManifestPath, $libmpvPath, $customLibmpvPath)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
-        throw "Required production-candidate artifact is missing: $required"
+        throw "Required Sakurava engine artifact is missing: $required"
     }
 }
+if (-not (Test-Path -LiteralPath $legalSourceRoot -PathType Container)) {
+    throw "Required Sakurava engine legal source is missing: $legalSourceRoot"
+}
 
-$candidateManifest = Get-Content -LiteralPath $candidateManifestPath -Raw | ConvertFrom-Json
-if ($candidateManifest.mpv.tag -ne "v0.41.0" -or
-    $candidateManifest.mpv.commit -ne "41f6a645068483470267271e1d09966ca3b9f413" -or
-    $candidateManifest.ffmpeg.tag -ne "n9.0.1" -or
-    $candidateManifest.ffmpeg.commit -ne "bf1b838f2ab88b4f8fd83443325c782ea0e0f7fa" -or
-    $candidateManifest.ffmpeg.gpl -ne $false -or
-    $candidateManifest.ffmpeg.nonfree -ne $false -or
-    -not ($candidateManifest.mpv.options -contains "-Dgpl=false")) {
-    throw "Production-candidate provenance or GPL/nonfree guard does not match the approved profile"
+$engineManifest = Get-Content -LiteralPath $engineManifestPath -Raw | ConvertFrom-Json
+if ($engineManifest.formatVersion -ne 1 -or
+    $engineManifest.engineVersion -ne "0.41.0" -or
+    $engineManifest.source.commit -ne $expectedMpvCommit -or
+    $engineManifest.source.patch -ne $expectedPatchPath -or
+    $engineManifest.ffmpeg.commit -ne $expectedFfmpegCommit -or
+    $engineManifest.ffmpeg.gpl -ne $false -or
+    $engineManifest.ffmpeg.nonfree -ne $false -or
+    $engineManifest.customRuntime.filename -ne $customLibraryName -or
+    $engineManifest.property -ne "sakurava-sub-rendered-geometry") {
+    throw "Sakurava engine provenance or GPL/nonfree guard does not match the approved profile"
 }
 $actualMpvHash = (Get-FileHash -LiteralPath $libmpvPath -Algorithm SHA256).Hash
 if ($actualMpvHash -ne $expectedMpvHash) {
     throw "libmpv hash mismatch: expected $expectedMpvHash, got $actualMpvHash"
 }
+$actualCustomMpvHash = (Get-FileHash -LiteralPath $customLibmpvPath -Algorithm SHA256).Hash
+if ($actualCustomMpvHash -ne $engineManifest.customRuntime.sha256) {
+    throw "Sakurava custom libmpv hash mismatch: expected $($engineManifest.customRuntime.sha256), got $actualCustomMpvHash"
+}
 $dependencyManifest = Get-Content -LiteralPath $dependencyManifestPath -Raw | ConvertFrom-Json
-if ($candidateManifest.runtime.unresolvedDependencyCount -ne 0) {
-    throw "Production candidate has unresolved runtime dependencies"
+if ($dependencyManifest.entry -ne $customLibraryName -or
+    $dependencyManifest.entrySha256 -ne $actualCustomMpvHash -or
+    $dependencyManifest.preservedUpstreamEntry.sha256 -ne $expectedMpvHash -or
+    @($dependencyManifest.unresolved).Count -ne 0) {
+    throw "Sakurava engine entry identity or runtime dependency closure does not match the approved profile"
 }
 
 $stageLeaf = [System.IO.Path]::GetFileName($outputRootPath)
@@ -74,16 +94,16 @@ if (-not (Test-Path -LiteralPath $hostSource -PathType Leaf)) {
 }
 Copy-Item -Path (Join-Path $runtimeRoot "*") -Destination $engineTarget -Recurse
 Copy-Item -Path (Join-Path $repoRoot "dist\*") -Destination $uiTarget -Recurse
-Copy-Item -LiteralPath $candidateManifestPath -Destination (Join-Path $legalTarget "production-candidate.json")
+Copy-Item -LiteralPath $engineManifestPath -Destination (Join-Path $legalTarget "sakurava-engine-build.json")
 Copy-Item -LiteralPath $dependencyManifestPath -Destination (Join-Path $legalTarget "dependency-closure.json")
 
 $licenseCopies = @(
-    @{ Source = (Join-Path $candidateRootPath "source\mpv\LICENSE.LGPL"); Target = "mpv-LICENSE.LGPL" },
-    @{ Source = (Join-Path $candidateRootPath "source\mpv\Copyright"); Target = "mpv-Copyright" },
-    @{ Source = (Join-Path $candidateRootPath "source\ffmpeg\LICENSE.md"); Target = "FFmpeg-LICENSE.md" },
-    @{ Source = (Join-Path $candidateRootPath "source\ffmpeg\COPYING.LGPLv2.1"); Target = "FFmpeg-COPYING.LGPLv2.1" },
-    @{ Source = (Join-Path $candidateRootPath "source\ffmpeg\COPYING.LGPLv3"); Target = "FFmpeg-COPYING.LGPLv3" },
-    @{ Source = (Join-Path $candidateRootPath "toolchain\msys64\clang64\share\doc\zimg\COPYING"); Target = "zimg-COPYING" }
+    @{ Source = (Join-Path $legalSourceRoot "mpv-LICENSE.LGPL"); Target = "mpv-LICENSE.LGPL" },
+    @{ Source = (Join-Path $legalSourceRoot "mpv-Copyright"); Target = "mpv-Copyright" },
+    @{ Source = (Join-Path $legalSourceRoot "FFmpeg-LICENSE.md"); Target = "FFmpeg-LICENSE.md" },
+    @{ Source = (Join-Path $legalSourceRoot "FFmpeg-COPYING.LGPLv2.1"); Target = "FFmpeg-COPYING.LGPLv2.1" },
+    @{ Source = (Join-Path $legalSourceRoot "FFmpeg-COPYING.LGPLv3"); Target = "FFmpeg-COPYING.LGPLv3" },
+    @{ Source = (Join-Path $legalSourceRoot "zimg-COPYING"); Target = "zimg-COPYING" }
 )
 foreach ($item in $licenseCopies) {
     if (Test-Path -LiteralPath $item.Source -PathType Leaf) {
@@ -91,7 +111,7 @@ foreach ($item in $licenseCopies) {
     }
 }
 
-$msysLicenseRoot = Join-Path $candidateRootPath "toolchain\msys64\clang64\share\licenses"
+$msysLicenseRoot = $legalSourceRoot
 $packageLicenseNames = @(
     "brotli", "bzip2", "expat", "fontconfig", "freetype", "fribidi", "glib2",
     "graphite2", "harfbuzz", "lcms2", "libc++", "libdovi", "libiconv",
@@ -106,8 +126,8 @@ foreach ($packageName in $packageLicenseNames) {
 }
 
 $componentInventory = @(
-    @{ name = "mpv"; version = "0.41.0"; upstream = "https://github.com/mpv-player/mpv"; revision = $candidateManifest.mpv.commit; profile = "gpl=false shared libmpv"; binaries = @("libmpv-2.dll"); linkage = "dynamic"; notice = "mpv-LICENSE.LGPL; mpv-Copyright" },
-    @{ name = "FFmpeg"; version = "9.0.1"; upstream = "https://github.com/FFmpeg/FFmpeg"; revision = $candidateManifest.ffmpeg.commit; profile = "LGPL 2.1-or-later; GPL=false; nonfree=false; network=false"; binaries = @("avcodec-63.dll", "avfilter-12.dll", "avformat-63.dll", "avutil-61.dll", "swresample-7.dll", "swscale-10.dll"); linkage = "dynamic"; notice = "FFmpeg-LICENSE.md and LGPL texts" },
+    @{ name = "mpv"; version = "0.41.0"; upstream = "https://github.com/mpv-player/mpv"; revision = $engineManifest.source.commit; profile = "gpl=false shared libmpv with Sakurava rendered-subtitle-geometry patch"; binaries = @($customLibraryName, "libmpv-2.dll"); linkage = "dynamic"; notice = "mpv-LICENSE.LGPL; mpv-Copyright" },
+    @{ name = "FFmpeg"; version = "9.0.1"; upstream = "https://github.com/FFmpeg/FFmpeg"; revision = $engineManifest.ffmpeg.commit; profile = "LGPL 2.1-or-later; GPL=false; nonfree=false; network=false"; binaries = @("avcodec-63.dll", "avfilter-12.dll", "avformat-63.dll", "avutil-61.dll", "swresample-7.dll", "swscale-10.dll"); linkage = "dynamic"; notice = "FFmpeg-LICENSE.md and LGPL texts" },
     @{ name = "libplacebo"; version = "7.360.1"; upstream = "https://code.videolan.org/videolan/libplacebo"; revision = $null; profile = "license review required"; binaries = @("libplacebo-360.dll"); linkage = "dynamic"; notice = "libplacebo license directory" },
     @{ name = "libass"; version = "0.17.5"; upstream = "https://github.com/libass/libass"; revision = $null; profile = "license review required"; binaries = @("libass-9.dll"); linkage = "dynamic"; notice = "license text not present in candidate license tree; source/legal reconciliation required" },
     @{ name = "lcms2"; version = $null; upstream = "https://www.littlecms.com"; revision = $null; profile = "license review required"; binaries = @("liblcms2-2.dll"); linkage = "dynamic"; notice = "lcms2 license directory" },
@@ -118,10 +138,11 @@ $componentInventory = @(
 $inventory = [ordered]@{
     classification = "PRODUCTION CANDIDATE - LEGAL/LICENSE REVIEW REQUIRED"
     generatedAt = (Get-Date).ToString("o")
-    candidateRoot = $candidateRootPath
-    libmpvSha256 = $actualMpvHash
-    mpv = $candidateManifest.mpv
-    ffmpeg = $candidateManifest.ffmpeg
+    engineInput = "Sakurava engine runtime produced by scripts/build-video-player-mpv-engine.ps1"
+    baseLibmpvSha256 = $actualMpvHash
+    customLibmpvSha256 = $actualCustomMpvHash
+    mpv = $engineManifest.source
+    ffmpeg = $engineManifest.ffmpeg
     mediaHost = [ordered]@{
         filename = "sakurava-media-host.exe"
         bytes = (Get-Item -LiteralPath $hostSource).Length
@@ -187,8 +208,9 @@ Copy-Item -LiteralPath $installer.FullName -Destination $packagePath
 
 $result = [ordered]@{
     classification = "PRODUCTION CANDIDATE - LEGAL/LICENSE REVIEW REQUIRED"
-    candidateLibmpv = $libmpvPath
-    candidateLibmpvSha256 = $actualMpvHash
+    customLibmpv = $customLibmpvPath
+    customLibmpvSha256 = $actualCustomMpvHash
+    baseLibmpvSha256 = $actualMpvHash
     resourceSource = $resourceSource
     resourceFileCount = (Get-ChildItem -LiteralPath $resourceSource -File -Recurse).Count
     resourceBytes = (Get-ChildItem -LiteralPath $resourceSource -File -Recurse | Measure-Object Length -Sum).Sum

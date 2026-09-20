@@ -1,0 +1,163 @@
+diff --git a/player/command.c b/player/command.c
+index 96bc06a..d122b73 100644
+--- a/player/command.c
++++ b/player/command.c
+@@ -3280,6 +3280,27 @@ static int mp_property_sub_pos(void *ctx, struct m_property *prop,
+     return mp_property_generic_option(mpctx, prop, action, arg);
+ }
+ 
++static int mp_property_sub_rendered_geometry(void *ctx, struct m_property *prop,
++                                             int action, void *arg)
++{
++    MPContext *mpctx = ctx;
++    struct osd_subtitle_geometry geometry;
++    if (!osd_get_primary_subtitle_geometry(mpctx->osd, &geometry))
++        return M_PROPERTY_UNAVAILABLE;
++
++    struct m_sub_property props[] = {
++        {"x",         SUB_PROP_INT(geometry.x)},
++        {"y",         SUB_PROP_INT(geometry.y)},
++        {"w",         SUB_PROP_INT(geometry.w)},
++        {"h",         SUB_PROP_INT(geometry.h)},
++        {"output-w",  SUB_PROP_INT(geometry.output_w)},
++        {"output-h",  SUB_PROP_INT(geometry.output_h)},
++        {"change-id", SUB_PROP_INT64(geometry.change_id)},
++        {0}
++    };
++    return m_property_read_sub(props, action, arg);
++}
++
+ static int mp_property_sub_ass_extradata(void *ctx, struct m_property *prop,
+                                      int action, void *arg)
+ {
+@@ -4494,6 +4515,7 @@ static const struct m_property mp_properties_base[] = {
+     {"sub-pos", mp_property_sub_pos, .priv = (void *)&(const int){0}},
+     {"secondary-sub-pos", mp_property_sub_pos,
+         .priv = (void *)&(const int){1}},
++    {"sakurava-sub-rendered-geometry", mp_property_sub_rendered_geometry},
+     {"sub-ass-extradata", mp_property_sub_ass_extradata},
+     {"sub-text", mp_property_sub_text,
+         .priv = (void *)&(const int[]){0, SD_TEXT_TYPE_PLAIN}},
+@@ -8020,6 +8042,10 @@ void mp_option_run_callback(struct MPContext *mpctx, struct mp_option_callback *
+     if (opt_ptr == &opts->vo->android_surface_size || opt_ptr == &opts->vo->d3d11_composition_size) {
+         if (mpctx->video_out)
+             vo_control(mpctx->video_out, VOCTRL_EXTERNAL_RESIZE, NULL);
++        if (opt_ptr == &opts->vo->d3d11_composition_size) {
++            redraw_subs(mpctx);
++            mp_force_video_refresh(mpctx);
++        }
+     }
+ 
+     if (opt_ptr == &opts->input_commands) {
+diff --git a/sub/osd.c b/sub/osd.c
+index 2788897..97ea47b 100644
+--- a/sub/osd.c
++++ b/sub/osd.c
+@@ -354,6 +354,40 @@ static struct sub_bitmaps *render_object(struct osd_state *osd,
+     return res;
+ }
+ 
++static void update_primary_subtitle_geometry(
++    struct osd_state *osd, struct osd_object *obj,
++    struct mp_osd_res output, struct sub_bitmaps *imgs)
++{
++    struct osd_subtitle_geometry geometry = {
++        .output_w = output.w,
++        .output_h = output.h,
++        .change_id = obj->vo_change_id,
++    };
++
++    if (imgs && imgs->num_parts > 0) {
++        int x0 = INT_MAX;
++        int y0 = INT_MAX;
++        int x1 = INT_MIN;
++        int y1 = INT_MIN;
++        for (int n = 0; n < imgs->num_parts; n++) {
++            struct sub_bitmap *part = &imgs->parts[n];
++            x0 = MPMIN(x0, part->x);
++            y0 = MPMIN(y0, part->y);
++            x1 = MPMAX(x1, part->x + part->dw);
++            y1 = MPMAX(y1, part->y + part->dh);
++        }
++        if (x1 > x0 && y1 > y0) {
++            geometry.valid = true;
++            geometry.x = x0;
++            geometry.y = y0;
++            geometry.w = x1 - x0;
++            geometry.h = y1 - y0;
++        }
++    }
++
++    osd->primary_subtitle_geometry = geometry;
++}
++
+ // Render OSD to a list of bitmap and return it. The returned object is
+ // refcounted. Typically you should hold it only for a short time, and then
+ // release it.
+@@ -396,6 +430,9 @@ struct sub_bitmap_list *osd_render(struct osd_state *osd, struct mp_osd_res res,
+         struct sub_bitmaps *imgs =
+             render_object(osd, obj, res, video_pts, formats);
+ 
++        if (obj->type == OSDTYPE_SUB)
++            update_primary_subtitle_geometry(osd, obj, res, imgs);
++
+         stats_time_end(osd->stats, stat_type_render);
+ 
+         if (imgs && imgs->num_parts > 0) {
+@@ -528,6 +565,16 @@ struct mp_osd_res osd_get_vo_res(struct osd_state *osd)
+     return res;
+ }
+ 
++bool osd_get_primary_subtitle_geometry(
++    struct osd_state *osd, struct osd_subtitle_geometry *out_geometry)
++{
++    mp_mutex_lock(&osd->lock);
++    *out_geometry = osd->primary_subtitle_geometry;
++    bool valid = out_geometry->valid;
++    mp_mutex_unlock(&osd->lock);
++    return valid;
++}
++
+ // Position the subbitmaps in imgs on the screen. Basically, this fits the
+ // subtitle canvas (of size frame_w x frame_h) onto the screen, such that it
+ // fills the whole video area (especially if the video is magnified, e.g. on
+diff --git a/sub/osd.h b/sub/osd.h
+index 8bb6b90..6013b63 100644
+--- a/sub/osd.h
++++ b/sub/osd.h
+@@ -103,6 +103,14 @@ struct mp_osd_res {
+     double display_par;
+ };
+ 
++struct osd_subtitle_geometry {
++    bool valid;
++    int x, y;
++    int w, h;
++    int output_w, output_h;
++    int64_t change_id;
++};
++
+ bool osd_res_equals(struct mp_osd_res a, struct mp_osd_res b);
+ 
+ // 0 <= sub_bitmaps.render_index < MAX_OSD_PARTS
+@@ -232,6 +240,8 @@ struct mp_image_params;
+ struct mp_osd_res osd_res_from_image_params(const struct mp_image_params *p);
+ 
+ struct mp_osd_res osd_get_vo_res(struct osd_state *osd);
++bool osd_get_primary_subtitle_geometry(
++    struct osd_state *osd, struct osd_subtitle_geometry *out_geometry);
+ 
+ void osd_rescale_bitmaps(struct sub_bitmaps *imgs, int frame_w, int frame_h,
+                          struct mp_osd_res res, double compensate_par);
+diff --git a/sub/osd_state.h b/sub/osd_state.h
+index ef0ff20..9cfcdf2 100644
+--- a/sub/osd_state.h
++++ b/sub/osd_state.h
+@@ -69,6 +69,7 @@ struct osd_state {
+     mp_mutex lock;
+ 
+     struct osd_object *objs[MAX_OSD_PARTS];
++    struct osd_subtitle_geometry primary_subtitle_geometry;
+ 
+     bool render_subs_in_filter;
+     _Atomic double force_video_pts;

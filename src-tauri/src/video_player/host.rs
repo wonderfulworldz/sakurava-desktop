@@ -27,7 +27,8 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
     COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC,
 };
 use webview2_com::{
-    CoTaskMemPWSTR, CreateCoreWebView2CompositionControllerCompletedHandler,
+    CoTaskMemPWSTR, CoreWebView2EnvironmentOptions,
+    CreateCoreWebView2CompositionControllerCompletedHandler,
     CreateCoreWebView2EnvironmentCompletedHandler, CursorChangedEventHandler,
     WebMessageReceivedEventHandler,
 };
@@ -62,8 +63,9 @@ use windows::{
             HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2},
             Input::KeyboardAndMouse::{GetDoubleClickTime, SetFocus},
             Shell::{
-                Common::COMDLG_FILTERSPEC, FileOpenDialog, IFileOpenDialog, FOS_FILEMUSTEXIST,
-                FOS_FORCEFILESYSTEM, FOS_NOCHANGEDIR, FOS_PATHMUSTEXIST, SIGDN_FILESYSPATH,
+                Common::COMDLG_FILTERSPEC, DragAcceptFiles, DragFinish, DragQueryFileW,
+                FileOpenDialog, IFileOpenDialog, FOS_FILEMUSTEXIST, FOS_FORCEFILESYSTEM,
+                FOS_NOCHANGEDIR, FOS_PATHMUSTEXIST, HDROP, SIGDN_FILESYSPATH,
             },
             WindowsAndMessaging::{
                 AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DestroyWindow,
@@ -73,25 +75,29 @@ use windows::{
                 TranslateMessage, CREATESTRUCTW, CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT,
                 GWLP_USERDATA, GWL_STYLE, HMENU, HTCAPTION, HTCLIENT, HWND_TOPMOST, IDC_ARROW,
                 MINMAXINFO, MSG, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER,
-                SWP_NOSIZE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WMSZ_BOTTOMLEFT,
-                WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP, WMSZ_TOPLEFT, WMSZ_TOPRIGHT,
-                WM_APP, WM_CLOSE, WM_DESTROY, WM_GETMINMAXINFO, WM_KEYDOWN, WM_LBUTTONDOWN,
-                WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL,
-                WM_NCCREATE, WM_NCHITTEST, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETCURSOR, WM_SETFOCUS,
-                WM_SIZE, WM_SIZING, WM_TIMER, WNDCLASSW, WS_EX_TOPMOST, WS_OVERLAPPEDWINDOW,
-                WS_POPUP, WS_THICKFRAME, WS_VISIBLE,
+                SWP_NOSIZE, SWP_SHOWWINDOW, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WINDOW_STYLE,
+                WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP, WMSZ_TOPLEFT,
+                WMSZ_TOPRIGHT, WM_APP, WM_CLOSE, WM_DESTROY, WM_DROPFILES, WM_GETMINMAXINFO,
+                WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
+                WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCCREATE, WM_NCHITTEST, WM_RBUTTONDOWN,
+                WM_RBUTTONUP, WM_SETCURSOR, WM_SETFOCUS, WM_SIZE, WM_SIZING, WM_TIMER, WNDCLASSW,
+                WS_CAPTION, WS_EX_NOREDIRECTIONBITMAP, WS_EX_TOPMOST, WS_OVERLAPPEDWINDOW,
+                WS_POPUP, WS_SYSMENU, WS_THICKFRAME, WS_VISIBLE,
             },
         },
     },
 };
 
-use super::source::{open_media_file_with_default_app, validate_external_subtitle_path};
+use super::source::{
+    discover_sidecar_subtitles, open_media_file_with_default_app, validate_external_subtitle_path,
+};
 use crate::output::{
     prepare_category, publish_unique_file, reveal_file, sanitize_file_component, OutputCategory,
 };
 
 use super::contact_sheet::{
-    sample_schedule, ContactSheetExtractionRequest, ContactSheetExtractionResult,
+    sample_schedule, ContactSheetExtractionProgress, ContactSheetExtractionRequest,
+    ContactSheetExtractionResult,
 };
 use super::ipc::{
     HostToMainKind, HostToMainMessage, HostToPlayerMessage, IpcError, MainToHostKind,
@@ -102,10 +108,20 @@ use super::ipc::{
 const WM_HOST_IPC: u32 = WM_APP + 41;
 const WM_HOST_ENTER_PIP: u32 = WM_APP + 42;
 const WM_HOST_RETURN_MAIN: u32 = WM_APP + 43;
+const WM_HOST_OPEN_SUBTITLE_APPEARANCE: u32 = WM_APP + 44;
+const WM_HOST_OPEN_SHORTCUTS: u32 = WM_APP + 45;
 const POLL_TIMER_ID: usize = 1;
+const WEBVIEW2_ENVIRONMENT_OVERRIDE_VARIABLES: [&str; 5] = [
+    "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
+    "WEBVIEW2_USER_DATA_FOLDER",
+    "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+    "WEBVIEW2_CHANNEL_SEARCH_KIND",
+    "WEBVIEW2_RELEASE_CHANNELS",
+];
 const MPV_FORMAT_FLAG: c_int = 3;
 const MPV_FORMAT_INT64: c_int = 4;
 const MPV_FORMAT_DOUBLE: c_int = 5;
+const SAKURAVA_MPV_LIBRARY_NAME: &str = "libmpv-sakurava-2.dll";
 
 type MpvCreate = unsafe extern "C" fn() -> *mut c_void;
 type MpvInitialize = unsafe extern "C" fn(*mut c_void) -> c_int;
@@ -192,7 +208,7 @@ impl MpvApi {
 
     fn load_with_profile(engine_root: &Path, extraction: bool) -> Result<Self, String> {
         let requested = engine_root
-            .join("libmpv-2.dll")
+            .join(SAKURAVA_MPV_LIBRARY_NAME)
             .canonicalize()
             .map_err(|error| format!("ENGINE_DLL_MISSING: {error}"))?;
         let module = unsafe {
@@ -406,6 +422,28 @@ impl MpvApi {
         Some(value)
     }
 
+    fn get_subtitle_rendered_geometry(&self) -> Option<SubtitleRenderedGeometry> {
+        const PROPERTY: &str = "sakurava-sub-rendered-geometry";
+        for _ in 0..2 {
+            let change_id = self.get_int64(&format!("{PROPERTY}/change-id"))?;
+            let geometry = SubtitleRenderedGeometry {
+                x: self.get_int64(&format!("{PROPERTY}/x"))?,
+                y: self.get_int64(&format!("{PROPERTY}/y"))?,
+                width: self.get_int64(&format!("{PROPERTY}/w"))?,
+                height: self.get_int64(&format!("{PROPERTY}/h"))?,
+                output_width: self.get_int64(&format!("{PROPERTY}/output-w"))?,
+                output_height: self.get_int64(&format!("{PROPERTY}/output-h"))?,
+                change_id,
+            };
+            if self.get_int64(&format!("{PROPERTY}/change-id")) == Some(change_id)
+                && geometry.is_valid()
+            {
+                return Some(geometry);
+            }
+        }
+        None
+    }
+
     fn drain_events(&self) -> Vec<EngineEvent> {
         let mut events = Vec::new();
         loop {
@@ -553,6 +591,148 @@ enum PresentationTarget {
     Pip,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SubtitlePositionMode {
+    Source,
+    Bottom,
+    Middle,
+    Top,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SubtitleRenderedGeometry {
+    x: i64,
+    y: i64,
+    width: i64,
+    height: i64,
+    output_width: i64,
+    output_height: i64,
+    change_id: i64,
+}
+
+impl SubtitleRenderedGeometry {
+    fn is_valid(self) -> bool {
+        self.width > 0 && self.height > 0 && self.output_width > 0 && self.output_height > 0
+    }
+
+    fn center_y(self) -> f64 {
+        self.y as f64 + self.height as f64 / 2.0
+    }
+}
+
+impl SubtitlePositionMode {
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "source" => Some(Self::Source),
+            "bottom" => Some(Self::Bottom),
+            "middle" => Some(Self::Middle),
+            "top" => Some(Self::Top),
+            _ => None,
+        }
+    }
+
+    fn plain_vertical_alignment(self) -> &'static str {
+        "bottom"
+    }
+
+    fn plain_horizontal_alignment(self) -> &'static str {
+        "center"
+    }
+
+    fn ass_alignment(self) -> Option<u8> {
+        match self {
+            Self::Source => None,
+            Self::Bottom | Self::Middle | Self::Top => Some(2),
+        }
+    }
+
+    fn anchor_region(self) -> Option<SubtitleAnchorRegion> {
+        match self {
+            Self::Source => None,
+            Self::Top => Some(SubtitleAnchorRegion {
+                min: 0.0,
+                neutral: 1.0 / 6.0,
+                max: 1.0 / 3.0,
+            }),
+            Self::Middle => Some(SubtitleAnchorRegion {
+                min: 1.0 / 3.0,
+                neutral: 0.5,
+                max: 2.0 / 3.0,
+            }),
+            Self::Bottom => Some(SubtitleAnchorRegion {
+                min: 2.0 / 3.0,
+                // Preserve the accepted sub-pos=100 Bottom baseline.
+                neutral: 1.0,
+                max: 1.0,
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct SubtitleAnchorRegion {
+    min: f64,
+    neutral: f64,
+    max: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UtilityWindowKind {
+    SubtitleAppearance,
+    Shortcuts,
+}
+
+const PLAYER_AUXILIARY_CLIENT_WIDTH: i32 = 1100;
+const PLAYER_AUXILIARY_CLIENT_HEIGHT: i32 = 760;
+
+impl UtilityWindowKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::SubtitleAppearance => "subtitle-appearance",
+            Self::Shortcuts => "shortcuts",
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::SubtitleAppearance => "Sakurava Subtitle Appearance",
+            Self::Shortcuts => "Sakurava Custom Shortcuts",
+        }
+    }
+
+    fn client_size(self) -> (i32, i32) {
+        (
+            PLAYER_AUXILIARY_CLIENT_WIDTH,
+            PLAYER_AUXILIARY_CLIENT_HEIGHT,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WebViewTarget {
+    Main,
+    Pip,
+    Utility(UtilityWindowKind),
+}
+
+impl WebViewTarget {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Main => "main",
+            Self::Pip => "pip",
+            Self::Utility(kind) => kind.as_str(),
+        }
+    }
+
+    fn presentation(self) -> Option<PresentationTarget> {
+        match self {
+            Self::Main => Some(PresentationTarget::Main),
+            Self::Pip => Some(PresentationTarget::Pip),
+            Self::Utility(_) => None,
+        }
+    }
+}
+
 impl PresentationTarget {
     fn as_str(self) -> &'static str {
         match self {
@@ -575,6 +755,13 @@ struct PipPresentation {
     aspect_ratio: f64,
 }
 
+struct UtilityPresentation {
+    kind: UtilityWindowKind,
+    hwnd: HWND,
+    tree: CompositionTree,
+    webview: WebViewHost,
+}
+
 struct HostUi {
     process_started_at: Instant,
     hwnd: HWND,
@@ -585,12 +772,19 @@ struct HostUi {
     assets_root: PathBuf,
     self_weak: Weak<RefCell<HostUi>>,
     pip: Option<PipPresentation>,
+    utilities: Vec<UtilityPresentation>,
     active_presentation: PresentationTarget,
     fullscreen: bool,
     main_windowed_rect: Option<RECT>,
     main_windowed_style: Option<isize>,
+    main_aspect_ratio_applied: Option<f64>,
     last_nonzero_volume: f64,
     previous_subtitle_id: Option<i64>,
+    subtitle_position_mode: SubtitlePositionMode,
+    subtitle_vertical_adjustment: f64,
+    subtitle_ass_appearance_overrides: String,
+    subtitle_dynamic_bottom_clearance_ratio: f64,
+    subtitle_middle_geometry: Option<SubtitleRenderedGeometry>,
     source_load_count: u64,
     source_loaded: bool,
     source_failed: bool,
@@ -600,6 +794,9 @@ struct HostUi {
     pending_seek: Option<(String, Instant)>,
     last_command_error: Option<IpcError>,
     last_screenshot_path: Option<PathBuf>,
+    pending_sidecar_subtitles: Vec<PathBuf>,
+    active_external_subtitle_id: Option<i64>,
+    active_external_subtitle_path: Option<PathBuf>,
     queue: Arc<Mutex<VecDeque<MainToHostMessage>>>,
     session: Option<OpenSourcePayload>,
     revision: u64,
@@ -612,6 +809,7 @@ pub fn run() -> Result<(), String> {
     if let Some(request_path) = extraction_request_path() {
         return run_contact_sheet_extraction(&request_path);
     }
+    clear_webview_environment_overrides();
     let process_started_at = Instant::now();
     let args = parse_args()?;
     require_directory(&args.engine_root, "ENGINE_ROOT_INVALID")?;
@@ -628,6 +826,12 @@ pub fn run() -> Result<(), String> {
         CoUninitialize();
     }
     result
+}
+
+fn clear_webview_environment_overrides() {
+    for variable in WEBVIEW2_ENVIRONMENT_OVERRIDE_VARIABLES {
+        std::env::remove_var(variable);
+    }
 }
 
 fn extraction_request_path() -> Option<PathBuf> {
@@ -659,23 +863,57 @@ fn run_contact_sheet_extraction(request_path: &Path) -> Result<(), String> {
     fs::create_dir_all(&frame_directory)
         .map_err(|error| format!("CONTACT_SHEET_FRAME_DIRECTORY_FAILED: {error}"))?;
     let mpv = MpvApi::load_for_extraction(&engine_root)?;
-    mpv.command(&["loadfile", &request.source_path, "replace"])?;
+    mpv.command(&["loadfile", &request.source_path, "replace"])
+        .map_err(|error| format!("CONTACT_SHEET_MPV_PHASE=loadfile;COMMAND=loadfile;{error}"))?;
     mpv.wait_for_event(MPV_EVENT_FILE_LOADED, std::time::Duration::from_secs(15))?;
+    if request.subtitles {
+        if let Some(path) = request.subtitle_path.as_deref() {
+            mpv.command(&["sub-add", path, "select"]).map_err(|error| {
+                format!("CONTACT_SHEET_MPV_PHASE=subtitle;COMMAND=sub-add;{error}")
+            })?;
+        } else {
+            let sid = request
+                .subtitle_id
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "auto".into());
+            mpv.set_property("sid", &sid).map_err(|error| {
+                format!("CONTACT_SHEET_MPV_PHASE=subtitle;PROPERTY=sid;{error}")
+            })?;
+        }
+        mpv.set_property("sub-visibility", "yes")?;
+    }
     let duration = mpv
         .get_double("duration")
         .filter(|value| value.is_finite() && *value > 0.0)
         .ok_or("CONTACT_SHEET_DURATION_INVALID")?;
     let requested_samples = sample_schedule(
         duration,
-        usize::from(request.grid) * usize::from(request.grid),
+        usize::from(request.rows) * usize::from(request.columns),
     )?;
+    let progress_path = PathBuf::from(&request.progress_path);
+    write_contact_sheet_progress(&progress_path, 0, requested_samples.len())?;
     let mut sample_seconds = Vec::with_capacity(requested_samples.len());
     let mut frame_paths = Vec::with_capacity(requested_samples.len());
     for (index, requested_seconds) in requested_samples.iter().enumerate() {
-        let captured_seconds =
-            mpv.seek_and_wait_for_frame(*requested_seconds, std::time::Duration::from_secs(10))?;
-        let frame = frame_directory.join(format!("frame-{index:02}.png"));
-        mpv.command(&["screenshot-to-file", &frame.display().to_string(), "video"])?;
+        let captured_seconds = mpv
+            .seek_and_wait_for_frame(*requested_seconds, std::time::Duration::from_secs(10))
+            .map_err(|error| {
+                format!(
+                    "CONTACT_SHEET_MPV_PHASE=seek;COMMAND=seek;SAMPLE_INDEX={index};SAMPLE_SECONDS={requested_seconds:.3};{error}"
+                )
+            })?;
+        let frame = frame_directory.join(format!("frame-{index:03}.png"));
+        let capture_mode = if request.subtitles {
+            "subtitles"
+        } else {
+            "video"
+        };
+        mpv.command(&["screenshot-to-file", &frame.display().to_string(), capture_mode])
+            .map_err(|error| {
+                format!(
+                    "CONTACT_SHEET_MPV_PHASE=capture;COMMAND=screenshot-to-file;MODE={capture_mode};SAMPLE_INDEX={index};SAMPLE_SECONDS={captured_seconds:.3};{error}"
+                )
+            })?;
         let bytes = fs::read(&frame)
             .map_err(|error| format!("CONTACT_SHEET_FRAME_READ_FAILED: {error}"))?;
         if bytes.len() < 32 || !bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
@@ -683,6 +921,7 @@ fn run_contact_sheet_extraction(request_path: &Path) -> Result<(), String> {
         }
         sample_seconds.push(captured_seconds);
         frame_paths.push(frame.display().to_string());
+        write_contact_sheet_progress(&progress_path, index + 1, requested_samples.len())?;
     }
     let result = ContactSheetExtractionResult {
         duration_seconds: duration,
@@ -697,6 +936,15 @@ fn run_contact_sheet_extraction(request_path: &Path) -> Result<(), String> {
     .map_err(|error| format!("CONTACT_SHEET_RESULT_WRITE_FAILED: {error}"))?;
     eprintln!("CONTACT_SHEET_EXTRACTION_CONTEXT=COMPLETED");
     Ok(())
+}
+
+fn write_contact_sheet_progress(path: &Path, completed: usize, total: usize) -> Result<(), String> {
+    fs::write(
+        path,
+        serde_json::to_vec(&ContactSheetExtractionProgress { completed, total })
+            .map_err(|error| format!("CONTACT_SHEET_PROGRESS_ENCODE_FAILED: {error}"))?,
+    )
+    .map_err(|error| format!("CONTACT_SHEET_PROGRESS_WRITE_FAILED: {error}"))
 }
 
 fn run_ui(args: HostArgs, process_started_at: Instant) -> Result<(), String> {
@@ -715,12 +963,19 @@ fn run_ui(args: HostArgs, process_started_at: Instant) -> Result<(), String> {
         assets_root: args.assets_root.clone(),
         self_weak: Weak::new(),
         pip: None,
+        utilities: Vec::new(),
         active_presentation: PresentationTarget::Main,
         fullscreen: false,
         main_windowed_rect: None,
         main_windowed_style: None,
+        main_aspect_ratio_applied: None,
         last_nonzero_volume: 72.0,
         previous_subtitle_id: None,
+        subtitle_position_mode: SubtitlePositionMode::Source,
+        subtitle_vertical_adjustment: 0.0,
+        subtitle_ass_appearance_overrides: String::new(),
+        subtitle_dynamic_bottom_clearance_ratio: 0.0,
+        subtitle_middle_geometry: None,
         source_load_count: 0,
         source_loaded: false,
         source_failed: false,
@@ -730,6 +985,9 @@ fn run_ui(args: HostArgs, process_started_at: Instant) -> Result<(), String> {
         pending_seek: None,
         last_command_error: None,
         last_screenshot_path: None,
+        pending_sidecar_subtitles: Vec::new(),
+        active_external_subtitle_id: None,
+        active_external_subtitle_path: None,
         queue: queue.clone(),
         session: None,
         revision: 0,
@@ -747,13 +1005,16 @@ fn run_ui(args: HostArgs, process_started_at: Instant) -> Result<(), String> {
         &args.assets_root,
         Rc::downgrade(&state),
         &state.borrow().tree.overlay,
-        PresentationTarget::Main,
+        WebViewTarget::Main,
     )?;
     state.borrow_mut().webview = Some(webview);
     resize(&mut state.borrow_mut())?;
     unsafe {
         SetTimer(Some(hwnd), POLL_TIMER_ID, 100, None);
+        DragAcceptFiles(hwnd, true);
         let _ = ShowWindow(hwnd, SW_SHOW);
+        let _ = SetForegroundWindow(hwnd);
+        let _ = SetFocus(Some(hwnd));
     }
     emit_to_main(
         HostToMainKind::HostReady {
@@ -829,6 +1090,15 @@ fn create_main_window() -> Result<HWND, String> {
                 windows::core::Error::from_win32()
             ));
         }
+        let utility_class_name = wide_null_str("SakuravaVideoPlayerUtilityHost");
+        let utility_class =
+            utility_window_class(HINSTANCE(instance.0), PCWSTR(utility_class_name.as_ptr()))?;
+        if RegisterClassW(&utility_class) == 0 {
+            return Err(format!(
+                "UTILITY_WINDOW_CLASS_FAILED: {}",
+                windows::core::Error::from_win32()
+            ));
+        }
         let title = wide_null_str("Sakurava Video Player");
         CreateWindowExW(
             WINDOW_EX_STYLE::default(),
@@ -846,6 +1116,22 @@ fn create_main_window() -> Result<HWND, String> {
         )
         .map_err(|error| format!("WINDOW_CREATE_FAILED: {error}"))
     }
+}
+
+fn utility_window_class(instance: HINSTANCE, class_name: PCWSTR) -> Result<WNDCLASSW, String> {
+    let cursor = unsafe { LoadCursorW(None, IDC_ARROW) }
+        .map_err(|error| format!("UTILITY_WINDOW_CURSOR_FAILED: {error}"))?;
+    Ok(WNDCLASSW {
+        style: CS_HREDRAW | CS_VREDRAW,
+        lpfnWndProc: Some(window_proc),
+        hInstance: instance,
+        hCursor: cursor,
+        lpszClassName: class_name,
+        // DirectComposition owns the client pixels. A class brush would fill the
+        // transparent WebView surface and turn the utility material opaque.
+        hbrBackground: windows::Win32::Graphics::Gdi::HBRUSH::default(),
+        ..Default::default()
+    })
 }
 
 fn player_window_class(instance: HINSTANCE, class_name: PCWSTR) -> Result<WNDCLASSW, String> {
@@ -903,10 +1189,12 @@ fn create_webview_environment(data_root: &Path) -> Result<ICoreWebView2Environme
     let data = wide_null(data_root);
     CreateCoreWebView2EnvironmentCompletedHandler::wait_for_async_operation(
         Box::new(move |handler| unsafe {
+            let options: ICoreWebView2EnvironmentOptions =
+                CoreWebView2EnvironmentOptions::default().into();
             CreateCoreWebView2EnvironmentWithOptions(
                 PCWSTR::null(),
                 PCWSTR(data.as_ptr()),
-                None::<&ICoreWebView2EnvironmentOptions>,
+                Some(&options),
                 &handler,
             )
             .map_err(webview2_com::Error::WindowsError)
@@ -930,7 +1218,7 @@ fn create_webview(
     assets_root: &Path,
     state: Weak<RefCell<HostUi>>,
     overlay: &IDCompositionVisual,
-    presentation: PresentationTarget,
+    target: WebViewTarget,
 ) -> Result<WebViewHost, String> {
     let environment3: ICoreWebView2Environment3 = environment
         .cast()
@@ -1014,17 +1302,16 @@ fn create_webview(
                                 let command_kind = command.kind.clone();
                                 let result = {
                                     let mut state = state.borrow_mut();
-                                    handle_player_command(&mut state, command, presentation)
+                                    handle_player_command(&mut state, command, target)
                                 };
                                 if let Err(error) = result {
                                     let mut state = state.borrow_mut();
                                     state.last_command_error =
                                         Some(ipc_error("PLAYER_COMMAND_REJECTED", error.clone()));
                                     let _ = post_snapshot(&mut state);
-                                    if let (Some(webview), Some(session)) = (
-                                        webview_for_presentation(&state, presentation),
-                                        state.session.as_ref(),
-                                    ) {
+                                    if let (Some(webview), Some(session)) =
+                                        (webview_for_target(&state, target), state.session.as_ref())
+                                    {
                                         let code = error
                                             .split(':')
                                             .next()
@@ -1068,7 +1355,7 @@ fn create_webview(
             .map_err(|error| error.to_string())?;
         let url = format!(
             "https://sakurava-player.local/video-player.html?presentation={}",
-            presentation.as_str(),
+            target.as_str(),
         );
         webview
             .Navigate(PCWSTR(wide_null_str(&url).as_ptr()))
@@ -1125,6 +1412,13 @@ fn handle_main_message(state: &mut HostUi, message: MainToHostMessage) -> Result
             state
                 .mpv
                 .command(&["loadfile", &source.canonical_path, "replace"])?;
+            state.pending_sidecar_subtitles = discover_sidecar_subtitles(Path::new(
+                &source.canonical_path,
+            ))
+            .unwrap_or_else(|error| {
+                eprintln!("VIDEO_PLAYER_SIDECAR_DISCOVERY_ERROR={error}");
+                Vec::new()
+            });
             state.source_loaded = false;
             state.source_failed = false;
             state.source_opened_at = Some(Instant::now());
@@ -1132,6 +1426,7 @@ fn handle_main_message(state: &mut HostUi, message: MainToHostMessage) -> Result
             state.controls_ready_recorded = false;
             state.pending_seek = None;
             state.last_command_error = None;
+            state.main_aspect_ratio_applied = None;
             state.source_load_count = state.source_load_count.saturating_add(1);
             eprintln!("VIDEO_PLAYER_SOURCE_LOAD_COUNT={}", state.source_load_count,);
             state.session = Some(source.clone());
@@ -1156,6 +1451,13 @@ fn handle_main_message(state: &mut HostUi, message: MainToHostMessage) -> Result
             state
                 .mpv
                 .command(&["loadfile", &source.canonical_path, "replace"])?;
+            state.pending_sidecar_subtitles = discover_sidecar_subtitles(Path::new(
+                &source.canonical_path,
+            ))
+            .unwrap_or_else(|error| {
+                eprintln!("VIDEO_PLAYER_SIDECAR_DISCOVERY_ERROR={error}");
+                Vec::new()
+            });
             state.source_loaded = false;
             state.source_failed = false;
             state.source_opened_at = Some(Instant::now());
@@ -1163,6 +1465,7 @@ fn handle_main_message(state: &mut HostUi, message: MainToHostMessage) -> Result
             state.controls_ready_recorded = false;
             state.pending_seek = None;
             state.last_command_error = None;
+            state.main_aspect_ratio_applied = None;
             state.source_load_count = state.source_load_count.saturating_add(1);
             eprintln!("VIDEO_PLAYER_SOURCE_LOAD_COUNT={}", state.source_load_count);
             state.session = Some(source.clone());
@@ -1198,7 +1501,7 @@ fn handle_main_message(state: &mut HostUi, message: MainToHostMessage) -> Result
 fn handle_player_command(
     state: &mut HostUi,
     command: PlayerCommand,
-    origin: PresentationTarget,
+    origin: WebViewTarget,
 ) -> Result<(), String> {
     if command.protocol_version != PROTOCOL_VERSION {
         return Err("PLAYER_PROTOCOL_UNSUPPORTED".into());
@@ -1223,9 +1526,22 @@ fn handle_player_command(
         PlayerCommandKind::BridgeReady | PlayerCommandKind::RequestSnapshot
     );
     match command.kind {
-        PlayerCommandKind::BridgeReady | PlayerCommandKind::RequestSnapshot => {
-            post_snapshot(state)?
+        PlayerCommandKind::BridgeReady => {
+            post_snapshot(state)?;
+            if let Some(webview) = webview_for_target(state, origin) {
+                unsafe {
+                    webview
+                        .controller
+                        .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC)
+                        .map_err(|error| error.to_string())?;
+                }
+                eprintln!(
+                    "VIDEO_PLAYER_WEBVIEW_FOCUS=BRIDGE_READY;TARGET={}",
+                    origin.as_str()
+                );
+            }
         }
+        PlayerCommandKind::RequestSnapshot => post_snapshot(state)?,
         PlayerCommandKind::Play => {
             state.mpv.set_property("pause", "no")?;
             post_snapshot(state)?;
@@ -1337,6 +1653,10 @@ fn handle_player_command(
             }
             state.mpv.set_property("sid", &id.to_string())?;
             state.previous_subtitle_id = Some(id);
+            if state.active_external_subtitle_id != Some(id) {
+                state.active_external_subtitle_id = None;
+                state.active_external_subtitle_path = None;
+            }
         }
         PlayerCommandKind::SubtitleOff => {
             if let Some(id) = active_subtitle_id(&state.mpv) {
@@ -1347,21 +1667,10 @@ fn handle_player_command(
         PlayerCommandKind::ToggleSubtitle => toggle_subtitle(state)?,
         PlayerCommandKind::LoadExternalSubtitle => {
             if let Some(path) = pick_external_subtitle(state.hwnd)? {
-                let canonical = validate_external_subtitle_path(&path).map_err(str::to_string)?;
-                let title = canonical
-                    .file_name()
-                    .and_then(|value| value.to_str())
-                    .unwrap_or("External Subtitle");
-                state.mpv.command(&[
-                    "sub-add",
-                    &canonical.display().to_string(),
-                    "select",
-                    title,
-                ])?;
-                state.mpv.set_property("sub-visibility", "yes")?;
+                let title = load_external_subtitle_path(state, &path, true)?;
                 eprintln!("VIDEO_PLAYER_EXTERNAL_SUBTITLE=LOADED");
                 result_code = Some("EXTERNAL_SUBTITLE_LOADED".into());
-                result_message = Some(title.to_string());
+                result_message = Some(title);
             } else {
                 eprintln!("VIDEO_PLAYER_EXTERNAL_SUBTITLE=CANCELLED");
                 result_status = "cancelled".into();
@@ -1379,13 +1688,32 @@ fn handle_player_command(
             state.mpv.set_property("sub-delay", &seconds.to_string())?;
         }
         PlayerCommandKind::SetSubtitleInset => {
-            let pixels = payload_number(&command, "pixels")?;
-            if !(0.0..=500.0).contains(&pixels) {
+            let safe_area_bottom_ratio = payload_number(&command, "safeAreaBottomRatio")?;
+            let overlap_css_pixels = payload_number(&command, "overlapCssPixels")?;
+            let viewport_width_css_pixels = payload_number(&command, "viewportWidthCssPixels")?;
+            let viewport_height_css_pixels = payload_number(&command, "viewportHeightCssPixels")?;
+            let device_scale_factor = payload_number(&command, "deviceScaleFactor")?;
+            if !(0.0..=1.0).contains(&safe_area_bottom_ratio) {
                 return Err("SUBTITLE_INSET_INVALID".into());
             }
-            state
-                .mpv
-                .set_property("sub-margin-y", &pixels.round().to_string())?;
+            if overlap_css_pixels < 0.0
+                || viewport_width_css_pixels <= 0.0
+                || viewport_height_css_pixels <= 0.0
+                || device_scale_factor <= 0.0
+            {
+                return Err("SUBTITLE_GEOMETRY_INVALID".into());
+            }
+            if (state.subtitle_dynamic_bottom_clearance_ratio - safe_area_bottom_ratio).abs()
+                > f64::EPSILON
+            {
+                state.subtitle_dynamic_bottom_clearance_ratio = safe_area_bottom_ratio;
+                if matches!(
+                    state.subtitle_position_mode,
+                    SubtitlePositionMode::Source | SubtitlePositionMode::Bottom
+                ) {
+                    apply_subtitle_positioning(state)?;
+                }
+            }
         }
         PlayerCommandKind::CaptureScreenshot => {
             let saved = capture_screenshot(state, &command.request_id)?;
@@ -1407,6 +1735,42 @@ fn handle_player_command(
             open_media_file_with_default_app(Path::new(&source.canonical_path))?;
             eprintln!("VIDEO_PLAYER_OPEN_EXTERNALLY=EXPLICIT");
         }
+        PlayerCommandKind::OpenContactSheet => {
+            let source = state.session.as_ref().ok_or("SESSION_NOT_OPEN")?;
+            emit_to_main(
+                HostToMainKind::ContactSheetRequested {
+                    source_identity: source.source_identity.clone(),
+                    display_name: source.display_name.clone(),
+                    resolution: source.resolution.clone(),
+                    duration_seconds: state.mpv.get_double("duration").unwrap_or(0.0).max(0.0),
+                    subtitle_id: active_subtitle_id(&state.mpv),
+                    subtitle_path: active_subtitle_id(&state.mpv)
+                        .filter(|id| state.active_external_subtitle_id == Some(*id))
+                        .and_then(|_| state.active_external_subtitle_path.as_ref())
+                        .map(|path| path.display().to_string()),
+                },
+                &command.request_id,
+            );
+            result_code = Some("CONTACT_SHEET_REQUESTED".into());
+        }
+        PlayerCommandKind::OpenSubtitleAppearance => unsafe {
+            let _ = PostMessageW(
+                Some(state.hwnd),
+                WM_HOST_OPEN_SUBTITLE_APPEARANCE,
+                WPARAM(0),
+                LPARAM(0),
+            );
+            result_code = Some("SUBTITLE_APPEARANCE_WINDOW_REQUESTED".into());
+        },
+        PlayerCommandKind::OpenShortcuts => unsafe {
+            let _ = PostMessageW(
+                Some(state.hwnd),
+                WM_HOST_OPEN_SHORTCUTS,
+                WPARAM(0),
+                LPARAM(0),
+            );
+            result_code = Some("SHORTCUTS_WINDOW_REQUESTED".into());
+        },
         PlayerCommandKind::EnterFullscreen => set_main_fullscreen(state, true)?,
         PlayerCommandKind::ExitFullscreen => set_main_fullscreen(state, false)?,
         PlayerCommandKind::ToggleFullscreen => set_main_fullscreen(state, !state.fullscreen)?,
@@ -1417,10 +1781,21 @@ fn handle_player_command(
             let _ = PostMessageW(Some(state.hwnd), WM_HOST_RETURN_MAIN, WPARAM(0), LPARAM(0));
         },
         PlayerCommandKind::Close => unsafe {
-            if origin == PresentationTarget::Pip {
-                let _ = PostMessageW(Some(state.hwnd), WM_HOST_RETURN_MAIN, WPARAM(0), LPARAM(0));
-            } else {
-                let _ = PostMessageW(Some(state.hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+            match origin {
+                WebViewTarget::Pip => {
+                    let _ =
+                        PostMessageW(Some(state.hwnd), WM_HOST_RETURN_MAIN, WPARAM(0), LPARAM(0));
+                }
+                WebViewTarget::Main => {
+                    let _ = PostMessageW(Some(state.hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+                }
+                WebViewTarget::Utility(kind) => {
+                    if let Some(utility) =
+                        state.utilities.iter().find(|utility| utility.kind == kind)
+                    {
+                        let _ = PostMessageW(Some(utility.hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+                    }
+                }
             }
         },
     }
@@ -1428,10 +1803,9 @@ fn handle_player_command(
     if should_acknowledge {
         post_snapshot(state)?;
     }
-    if let (Some(webview), Some(session)) = (
-        webview_for_presentation(state, origin),
-        state.session.as_ref(),
-    ) {
+    if let (Some(webview), Some(session)) =
+        (webview_for_target(state, origin), state.session.as_ref())
+    {
         let event = HostToPlayerMessage::CommandResult {
             protocol_version: PROTOCOL_VERSION,
             request_id: command.request_id,
@@ -1494,12 +1868,19 @@ fn apply_subtitle_appearance(state: &mut HostUi, command: &PlayerCommand) -> Res
     if font_family.trim().is_empty() || font_family.len() > 128 {
         return Err("SUBTITLE_FONT_INVALID".into());
     }
+    if font_family.contains(',') || font_family.contains('=') {
+        return Err("SUBTITLE_FONT_INVALID".into());
+    }
+    let font_family_override = payload_bool(command, "fontFamilyOverride")?;
+    let font_size_override = payload_bool(command, "fontSizeOverride")?;
     let font_size = payload_number(command, "fontSize")?;
     if !(12.0..=96.0).contains(&font_size) {
         return Err("SUBTITLE_FONT_SIZE_INVALID".into());
     }
     let text_color = subtitle_rgba(command, "textColor", "textOpacity")?;
+    let text_color_override = payload_bool(command, "textColorOverride")?;
     let background_color = subtitle_rgba(command, "backgroundColor", "backgroundOpacity")?;
+    let background_override = payload_bool(command, "backgroundOverride")?;
     let base_position = command
         .payload
         .get("basePosition")
@@ -1509,17 +1890,14 @@ fn apply_subtitle_appearance(state: &mut HostUi, command: &PlayerCommand) -> Res
     if !(-100.0..=100.0).contains(&vertical_adjustment) {
         return Err("SUBTITLE_POSITION_INVALID".into());
     }
-    let sub_pos = match base_position {
-        "top" => (8.0 + vertical_adjustment / 5.0).clamp(0.0, 35.0),
-        "middle" => (50.0 - vertical_adjustment / 5.0).clamp(25.0, 75.0),
-        "bottom" => (100.0 - vertical_adjustment / 5.0).clamp(65.0, 100.0),
-        _ => return Err("SUBTITLE_POSITION_INVALID".into()),
-    };
+    let position_mode =
+        SubtitlePositionMode::parse(base_position).ok_or("SUBTITLE_POSITION_INVALID")?;
     let edge_style = command
         .payload
         .get("edgeStyle")
         .and_then(|value| value.as_str())
         .ok_or("SUBTITLE_EDGE_STYLE_INVALID")?;
+    let edge_style_override = payload_bool(command, "edgeStyleOverride")?;
     let (outline, shadow) = match edge_style {
         "outline" => ("2", "0"),
         "shadow" => ("0", "2"),
@@ -1527,6 +1905,23 @@ fn apply_subtitle_appearance(state: &mut HostUi, command: &PlayerCommand) -> Res
         _ => return Err("SUBTITLE_EDGE_STYLE_INVALID".into()),
     };
     state.mpv.set_property("sub-font", font_family.trim())?;
+    // mpv defines subtitle sizes and margins as scaled pixels relative to a
+    // 720px window. Keep plain text subtitles responsive to the presentation
+    // viewport while leaving authored ASS styles under script ownership.
+    state.mpv.set_property("sub-scale-by-window", "yes")?;
+    state.mpv.set_property("sub-scale-with-window", "yes")?;
+    let ass_appearance_overrides = subtitle_ass_style_overrides(
+        font_family,
+        font_family_override,
+        font_size,
+        font_size_override,
+        &text_color,
+        text_color_override,
+        &background_color,
+        background_override,
+        edge_style,
+        edge_style_override,
+    )?;
     state
         .mpv
         .set_property("sub-font-size", &font_size.round().to_string())?;
@@ -1536,13 +1931,264 @@ fn apply_subtitle_appearance(state: &mut HostUi, command: &PlayerCommand) -> Res
         .set_property("sub-back-color", &background_color)?;
     state
         .mpv
-        .set_property("sub-border-style", "outline-and-shadow")?;
+        .set_property("sub-border-style", subtitle_border_style(&background_color))?;
     state.mpv.set_property("sub-outline-size", outline)?;
     state.mpv.set_property("sub-shadow-offset", shadow)?;
+    state.subtitle_position_mode = position_mode;
+    state.subtitle_vertical_adjustment = vertical_adjustment;
+    state.subtitle_ass_appearance_overrides = ass_appearance_overrides;
+    apply_subtitle_positioning(state)?;
+    Ok(())
+}
+
+fn apply_subtitle_positioning(state: &mut HostUi) -> Result<(), String> {
+    let effective_position = subtitle_effective_position(
+        state.subtitle_position_mode,
+        state.subtitle_vertical_adjustment,
+        state.subtitle_dynamic_bottom_clearance_ratio,
+    )
+    .ok_or("SUBTITLE_POSITION_INVALID")?;
+    let ass_style_overrides = subtitle_ass_style_overrides_with_position(
+        &state.subtitle_ass_appearance_overrides,
+        state.subtitle_position_mode,
+    );
     state
         .mpv
-        .set_property("sub-pos", &sub_pos.round().to_string())?;
+        .set_property("sub-ass-style-overrides", &ass_style_overrides)?;
+    state.mpv.set_property(
+        "sub-ass-override",
+        subtitle_ass_override_mode(
+            &ass_style_overrides,
+            state.subtitle_position_mode,
+            state.subtitle_dynamic_bottom_clearance_ratio,
+        ),
+    )?;
+    state.mpv.set_property(
+        "sub-align-x",
+        state.subtitle_position_mode.plain_horizontal_alignment(),
+    )?;
+    state.mpv.set_property(
+        "sub-align-y",
+        state.subtitle_position_mode.plain_vertical_alignment(),
+    )?;
+    state
+        .mpv
+        .set_property("sub-pos", &format!("{effective_position:.3}"))?;
+    state.subtitle_middle_geometry = None;
     Ok(())
+}
+
+fn reconcile_middle_subtitle_geometry(state: &mut HostUi) -> Result<(), String> {
+    if state.subtitle_position_mode != SubtitlePositionMode::Middle {
+        state.subtitle_middle_geometry = None;
+        return Ok(());
+    }
+    let Some(geometry) = state.mpv.get_subtitle_rendered_geometry() else {
+        return Ok(());
+    };
+    if state.subtitle_middle_geometry == Some(geometry) {
+        return Ok(());
+    }
+    let target_anchor = subtitle_effective_position(
+        SubtitlePositionMode::Middle,
+        state.subtitle_vertical_adjustment,
+        state.subtitle_dynamic_bottom_clearance_ratio,
+    )
+    .ok_or("SUBTITLE_POSITION_INVALID")?
+        / 100.0;
+    let current_position = state
+        .mpv
+        .get_double("sub-pos")
+        .ok_or("SUBTITLE_POSITION_UNAVAILABLE")?;
+    let corrected_position =
+        subtitle_middle_corrected_position(current_position, target_anchor, geometry)
+            .ok_or("SUBTITLE_RENDERED_GEOMETRY_INVALID")?;
+    if (corrected_position - current_position).abs() > 0.001 {
+        state
+            .mpv
+            .set_property("sub-pos", &format!("{corrected_position:.3}"))?;
+        eprintln!(
+            "VIDEO_PLAYER_SUBTITLE_MIDDLE_GEOMETRY=APPLIED;CHANGE_ID={};BOUNDS={},{},{},{};OUTPUT={}x{};TARGET_CENTER={:.3};SUB_POS={:.3}",
+            geometry.change_id,
+            geometry.x,
+            geometry.y,
+            geometry.width,
+            geometry.height,
+            geometry.output_width,
+            geometry.output_height,
+            target_anchor * geometry.output_height as f64,
+            corrected_position,
+        );
+    }
+    state.subtitle_middle_geometry = Some(geometry);
+    Ok(())
+}
+
+fn subtitle_middle_corrected_position(
+    current_position: f64,
+    target_anchor: f64,
+    geometry: SubtitleRenderedGeometry,
+) -> Option<f64> {
+    if !current_position.is_finite()
+        || !target_anchor.is_finite()
+        || !(0.0..=1.0).contains(&target_anchor)
+        || !geometry.is_valid()
+    {
+        return None;
+    }
+    let target_center = target_anchor * geometry.output_height as f64;
+    let center_error = target_center - geometry.center_y();
+    if center_error.abs() <= 0.5 {
+        return Some(current_position);
+    }
+    Some(
+        (current_position + center_error * 100.0 / geometry.output_height as f64).clamp(0.0, 100.0),
+    )
+}
+
+fn subtitle_effective_position(
+    position_mode: SubtitlePositionMode,
+    vertical_adjustment: f64,
+    dynamic_bottom_clearance_ratio: f64,
+) -> Option<f64> {
+    if !vertical_adjustment.is_finite()
+        || !(-100.0..=100.0).contains(&vertical_adjustment)
+        || !dynamic_bottom_clearance_ratio.is_finite()
+        || !(0.0..=1.0).contains(&dynamic_bottom_clearance_ratio)
+    {
+        return None;
+    }
+    if position_mode == SubtitlePositionMode::Source {
+        return Some((1.0 - dynamic_bottom_clearance_ratio) * 100.0);
+    }
+
+    let region = position_mode.anchor_region()?;
+    let adjustment_ratio = vertical_adjustment.abs() / 100.0;
+    // Preserve the existing operator-facing direction: positive adjustment
+    // moves the anchor upward, while negative adjustment moves it downward.
+    let requested_anchor = if vertical_adjustment >= 0.0 {
+        region.neutral - (region.neutral - region.min) * adjustment_ratio
+    } else {
+        region.neutral + (region.max - region.neutral) * adjustment_ratio
+    };
+    let effective_max = if position_mode == SubtitlePositionMode::Bottom {
+        region.max.min(1.0 - dynamic_bottom_clearance_ratio)
+    } else {
+        region.max
+    };
+    if effective_max < region.min {
+        return None;
+    }
+
+    Some(requested_anchor.clamp(region.min, effective_max) * 100.0)
+}
+
+fn subtitle_ass_style_overrides_with_position(
+    appearance_overrides: &str,
+    position_mode: SubtitlePositionMode,
+) -> String {
+    let mut overrides = appearance_overrides
+        .split(',')
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    if let Some(alignment) = position_mode.ass_alignment() {
+        overrides.push(format!("Alignment={alignment}"));
+    }
+    overrides.join(",")
+}
+
+fn subtitle_ass_style_overrides(
+    font_family: &str,
+    font_family_override: bool,
+    font_size: f64,
+    font_size_override: bool,
+    text_color: &str,
+    text_color_override: bool,
+    background_color: &str,
+    background_override: bool,
+    edge_style: &str,
+    edge_style_override: bool,
+) -> Result<String, String> {
+    let mut overrides = Vec::new();
+    if font_family_override {
+        overrides.push(format!("FontName={}", font_family.trim()));
+    }
+    if font_size_override {
+        overrides.push(format!("FontSize={}", font_size.round()));
+    }
+    if text_color_override {
+        overrides.push(format!("PrimaryColour={}", subtitle_ass_color(text_color)?));
+    }
+    if background_override {
+        overrides.push(format!(
+            "BackColour={}",
+            subtitle_ass_color(background_color)?
+        ));
+        overrides.push(format!(
+            "BorderStyle={}",
+            if background_color.starts_with("#00") {
+                1
+            } else {
+                4
+            }
+        ));
+    }
+    if edge_style_override {
+        let (outline, shadow) = match edge_style {
+            "outline" => (2, 0),
+            "shadow" => (0, 2),
+            "none" => (0, 0),
+            _ => return Err("SUBTITLE_EDGE_STYLE_INVALID".into()),
+        };
+        if !background_override {
+            overrides.push("BorderStyle=1".into());
+        }
+        overrides.push(format!("Outline={outline}"));
+        overrides.push(format!("Shadow={shadow}"));
+    }
+    Ok(overrides.join(","))
+}
+
+fn subtitle_ass_color(color: &str) -> Result<String, String> {
+    if color.len() != 9
+        || !color.starts_with('#')
+        || !color[1..].chars().all(|value| value.is_ascii_hexdigit())
+    {
+        return Err("SUBTITLE_COLOR_INVALID".into());
+    }
+    let opacity =
+        u8::from_str_radix(&color[1..3], 16).map_err(|_| "SUBTITLE_COLOR_INVALID".to_string())?;
+    Ok(format!(
+        "&H{:02X}{}{}{}",
+        255 - opacity,
+        &color[7..9],
+        &color[5..7],
+        &color[3..5],
+    ))
+}
+
+fn subtitle_ass_override_mode(
+    style_overrides: &str,
+    position_mode: SubtitlePositionMode,
+    dynamic_bottom_clearance_ratio: f64,
+) -> &'static str {
+    let source_dynamic_clearance =
+        position_mode == SubtitlePositionMode::Source && dynamic_bottom_clearance_ratio > 0.0;
+    let explicit_position = position_mode != SubtitlePositionMode::Source;
+    if style_overrides.is_empty() && !source_dynamic_clearance && !explicit_position {
+        "no"
+    } else {
+        "yes"
+    }
+}
+
+fn subtitle_border_style(background_color: &str) -> &'static str {
+    if background_color.starts_with("#00") {
+        "outline-and-shadow"
+    } else {
+        "background-box"
+    }
 }
 
 fn subtitle_rgba(
@@ -1689,6 +2335,18 @@ fn webview_for_presentation(
     }
 }
 
+fn webview_for_target(state: &HostUi, target: WebViewTarget) -> Option<&WebViewHost> {
+    match target {
+        WebViewTarget::Main => state.webview.as_ref(),
+        WebViewTarget::Pip => state.pip.as_ref().map(|pip| &pip.webview),
+        WebViewTarget::Utility(kind) => state
+            .utilities
+            .iter()
+            .find(|utility| utility.kind == kind)
+            .map(|utility| &utility.webview),
+    }
+}
+
 fn poll_engine(state: &mut HostUi) -> Result<(), String> {
     if state.session.is_none() {
         return Ok(());
@@ -1699,6 +2357,9 @@ fn poll_engine(state: &mut HostUi) -> Result<(), String> {
                 state.source_loaded = true;
                 state.source_failed = false;
                 state.last_command_error = None;
+                if let Err(error) = load_pending_sidecar_subtitles(state) {
+                    eprintln!("VIDEO_PLAYER_SIDECAR_SUBTITLE_ERROR={error}");
+                }
                 eprintln!("VIDEO_PLAYER_ENGINE_EVENT=FILE_LOADED");
                 if let Some(started) = state.source_opened_at {
                     eprintln!(
@@ -1774,8 +2435,48 @@ fn poll_engine(state: &mut HostUi) -> Result<(), String> {
             }
         }
     }
+    reconcile_main_aspect_ratio(state)?;
     reconcile_pip_aspect_ratio(state)?;
+    reconcile_middle_subtitle_geometry(state)?;
     post_snapshot(state)
+}
+
+fn reconcile_main_aspect_ratio(state: &mut HostUi) -> Result<(), String> {
+    if state.fullscreen || state.active_presentation != PresentationTarget::Main {
+        return Ok(());
+    }
+    let Some(ratio) = current_aspect_ratio(state) else {
+        return Ok(());
+    };
+    if state
+        .main_aspect_ratio_applied
+        .is_some_and(|current| (current - ratio).abs() < 0.0001)
+    {
+        return Ok(());
+    }
+    let mut client = RECT::default();
+    unsafe {
+        GetClientRect(state.hwnd, &mut client).map_err(|error| error.to_string())?;
+    }
+    let width = (client.right - client.left).max(1);
+    let height = (width as f64 / ratio).round().max(1.0) as i32;
+    let outer = outer_size_for_main_client(width, height)?;
+    unsafe {
+        SetWindowPos(
+            state.hwnd,
+            None,
+            0,
+            0,
+            outer.0,
+            outer.1,
+            SWP_NOMOVE | SWP_NOACTIVATE,
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    resize_presentation(state, state.hwnd)?;
+    state.main_aspect_ratio_applied = Some(ratio);
+    eprintln!("VIDEO_PLAYER_MAIN_ASPECT_RATIO={ratio:.6}");
+    Ok(())
 }
 
 fn reconcile_pip_aspect_ratio(state: &mut HostUi) -> Result<(), String> {
@@ -1868,6 +2569,7 @@ fn post_snapshot(state: &mut HostUi) -> Result<(), String> {
         loop_enabled: matches!((loop_a_seconds, loop_b_seconds), (Some(a), Some(b)) if b > a),
         subtitle_tracks,
         active_subtitle_id,
+        subtitle_delay_seconds: state.mpv.get_double("sub-delay").unwrap_or(0.0),
         presentation: state.active_presentation.as_str().into(),
         fullscreen: state.fullscreen,
         double_click_interval_ms: unsafe { GetDoubleClickTime() },
@@ -1927,6 +2629,9 @@ fn post_snapshot(state: &mut HostUi) -> Result<(), String> {
     if let Some(pip) = state.pip.as_ref() {
         post_web_message(&pip.webview.webview, &message)?;
     }
+    for utility in &state.utilities {
+        post_web_message(&utility.webview.webview, &message)?;
+    }
     Ok(())
 }
 
@@ -1934,8 +2639,8 @@ fn pick_external_subtitle(owner: HWND) -> Result<Option<PathBuf>, String> {
     unsafe {
         let dialog: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER)
             .map_err(|error| format!("SUBTITLE_DIALOG_CREATE_FAILED: {error}"))?;
-        let name = wide_null_str("SubRip Subtitle");
-        let pattern = wide_null_str("*.srt");
+        let name = wide_null_str("Subtitle Files");
+        let pattern = wide_null_str("*.srt;*.ass;*.ssa");
         dialog
             .SetFileTypes(&[COMDLG_FILTERSPEC {
                 pszName: PCWSTR(name.as_ptr()),
@@ -1974,6 +2679,100 @@ fn pick_external_subtitle(owner: HWND) -> Result<Option<PathBuf>, String> {
             .map_err(|error| format!("SUBTITLE_DIALOG_PATH_FAILED: {error}"));
         CoTaskMemFree(Some(raw.0.cast()));
         value.map(|value| Some(PathBuf::from(value)))
+    }
+}
+
+fn load_external_subtitle_path(
+    state: &mut HostUi,
+    path: &Path,
+    select: bool,
+) -> Result<String, String> {
+    let canonical = validate_external_subtitle_path(path).map_err(str::to_string)?;
+    let title = canonical
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("External Subtitle")
+        .to_string();
+    state.mpv.command(&[
+        "sub-add",
+        &canonical.display().to_string(),
+        if select { "select" } else { "auto" },
+        &title,
+    ])?;
+    if select {
+        state.mpv.set_property("sub-visibility", "yes")?;
+        state.active_external_subtitle_id = active_subtitle_id(&state.mpv);
+        state.active_external_subtitle_path = Some(canonical);
+    }
+    Ok(title)
+}
+
+fn load_pending_sidecar_subtitles(state: &mut HostUi) -> Result<(), String> {
+    let pending = std::mem::take(&mut state.pending_sidecar_subtitles);
+    for (index, path) in pending.iter().enumerate() {
+        let title = load_external_subtitle_path(state, path, index == 0)?;
+        eprintln!("VIDEO_PLAYER_SIDECAR_SUBTITLE=LOADED;FILE={title}");
+    }
+    Ok(())
+}
+
+unsafe fn dropped_paths(wparam: WPARAM) -> Result<Vec<PathBuf>, String> {
+    let drop = HDROP(wparam.0 as *mut c_void);
+    let count = DragQueryFileW(drop, u32::MAX, None);
+    let mut paths = Vec::with_capacity(count as usize);
+    for index in 0..count {
+        let length = DragQueryFileW(drop, index, None);
+        let mut buffer = vec![0u16; length as usize + 1];
+        let written = DragQueryFileW(drop, index, Some(&mut buffer));
+        if written == 0 {
+            DragFinish(drop);
+            return Err("SUBTITLE_DROP_PATH_INVALID".into());
+        }
+        paths.push(PathBuf::from(String::from_utf16_lossy(
+            &buffer[..written as usize],
+        )));
+    }
+    DragFinish(drop);
+    Ok(paths)
+}
+
+fn post_subtitle_drop_result(state: &mut HostUi, result: Result<String, String>) {
+    let Some(session_id) = state
+        .session
+        .as_ref()
+        .map(|session| session.session_id.clone())
+    else {
+        return;
+    };
+    let (status, code, message) = match result {
+        Ok(title) => (
+            "success".to_string(),
+            "EXTERNAL_SUBTITLE_LOADED".to_string(),
+            title,
+        ),
+        Err(error) => {
+            let code = error
+                .split(':')
+                .next()
+                .unwrap_or("SUBTITLE_DROP_FAILED")
+                .trim()
+                .to_string();
+            ("error".to_string(), code, error)
+        }
+    };
+    state.revision = state.revision.saturating_add(1);
+    let event = HostToPlayerMessage::CommandResult {
+        protocol_version: PROTOCOL_VERSION,
+        request_id: format!("subtitle-drop-{}", state.revision),
+        session_id,
+        revision: state.revision,
+        command_kind: PlayerCommandKind::LoadExternalSubtitle,
+        status,
+        code: Some(code),
+        message: Some(message),
+    };
+    if let Some(webview) = webview_for_presentation(state, state.active_presentation) {
+        let _ = post_web_message(&webview.webview, &event);
     }
 }
 
@@ -2037,18 +2836,28 @@ fn resize_presentation(state: &mut HostUi, hwnd: HWND) -> Result<(), String> {
     }
     let width = (rect.right - rect.left).max(1);
     let height = (rect.bottom - rect.top).max(1);
-    eprintln!("VIDEO_PLAYER_RESIZE={width}x{height}");
-    let presentation = if hwnd == state.hwnd {
-        PresentationTarget::Main
+    let target = if hwnd == state.hwnd {
+        Some(WebViewTarget::Main)
+    } else if state.pip.as_ref().is_some_and(|pip| pip.hwnd == hwnd) {
+        Some(WebViewTarget::Pip)
     } else {
-        PresentationTarget::Pip
+        state
+            .utilities
+            .iter()
+            .find(|utility| utility.hwnd == hwnd)
+            .map(|utility| WebViewTarget::Utility(utility.kind))
     };
-    if state.active_presentation == presentation {
+    let Some(target) = target else { return Ok(()) };
+    eprintln!(
+        "VIDEO_PLAYER_RESIZE={width}x{height};TARGET={}",
+        target.as_str()
+    );
+    if target.presentation() == Some(state.active_presentation) {
         state
             .mpv
             .set_property("d3d11-composition-size", &format!("{width}x{height}"))?;
     }
-    if let Some(webview) = webview_for_presentation(state, presentation) {
+    if let Some(webview) = webview_for_target(state, target) {
         unsafe {
             webview
                 .controller
@@ -2175,6 +2984,7 @@ fn enter_pip_from_cell(cell: &RefCell<HostUi>) -> Result<(), String> {
         )
     };
     let hwnd = create_pip_window(main_hwnd, ratio)?;
+    unsafe { DragAcceptFiles(hwnd, true) };
     let tree = unsafe { create_composition_tree_with_device(device, hwnd)? };
     unsafe {
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, cell as *const RefCell<HostUi> as isize);
@@ -2185,7 +2995,7 @@ fn enter_pip_from_cell(cell: &RefCell<HostUi>) -> Result<(), String> {
         &assets_root,
         weak,
         &tree.overlay,
-        PresentationTarget::Pip,
+        WebViewTarget::Pip,
     ) {
         Ok(webview) => webview,
         Err(error) => {
@@ -2278,6 +3088,115 @@ fn return_from_pip(cell: &RefCell<HostUi>) -> Result<(), String> {
     post_snapshot(&mut state)
 }
 
+fn open_utility_window_from_cell(
+    cell: &RefCell<HostUi>,
+    kind: UtilityWindowKind,
+) -> Result<(), String> {
+    {
+        let state = cell.borrow();
+        if let Some(utility) = state.utilities.iter().find(|utility| utility.kind == kind) {
+            unsafe {
+                let _ = ShowWindow(utility.hwnd, SW_SHOW);
+                let _ = SetForegroundWindow(utility.hwnd);
+                let _ = SetFocus(Some(utility.hwnd));
+            }
+            eprintln!(
+                "VIDEO_PLAYER_UTILITY=FOCUSED_EXISTING;KIND={}",
+                kind.as_str()
+            );
+            return Ok(());
+        }
+    }
+
+    let (main_hwnd, device, environment, assets_root, weak) = {
+        let state = cell.borrow();
+        (
+            state.hwnd,
+            state.tree.device.clone(),
+            state.webview_environment.clone(),
+            state.assets_root.clone(),
+            state.self_weak.clone(),
+        )
+    };
+    let hwnd = create_utility_window(main_hwnd, kind)?;
+    let tree = unsafe { create_composition_tree_with_device(device, hwnd)? };
+    // Make native chrome responsive immediately. The WebView is attached to
+    // the already-created client as soon as its CompositionController is
+    // ready, avoiding an unnecessary invisible controller-creation interval.
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_SHOW);
+        let _ = SetForegroundWindow(hwnd);
+    }
+    let webview = match create_webview(
+        &environment,
+        hwnd,
+        &assets_root,
+        weak,
+        &tree.overlay,
+        WebViewTarget::Utility(kind),
+    ) {
+        Ok(webview) => webview,
+        Err(error) => {
+            unsafe {
+                let _ = DestroyWindow(hwnd);
+            }
+            return Err(error);
+        }
+    };
+    unsafe {
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, cell as *const RefCell<HostUi> as isize);
+    }
+
+    {
+        let mut state = cell.borrow_mut();
+        state.utilities.push(UtilityPresentation {
+            kind,
+            hwnd,
+            tree,
+            webview,
+        });
+        resize_presentation(&mut state, hwnd)?;
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_SHOW);
+            let _ = SetForegroundWindow(hwnd);
+            let _ = SetFocus(Some(hwnd));
+        }
+    }
+    eprintln!(
+        "VIDEO_PLAYER_UTILITY=OPENED;KIND={};SESSION_COUNT=1;CONTEXT_COUNT=1",
+        kind.as_str()
+    );
+    Ok(())
+}
+
+fn close_utility_window(state: &mut HostUi, hwnd: HWND) -> Result<bool, String> {
+    let Some(index) = state
+        .utilities
+        .iter()
+        .position(|utility| utility.hwnd == hwnd)
+    else {
+        return Ok(false);
+    };
+    let utility = state.utilities.remove(index);
+    close_webview(&utility.webview)?;
+    unsafe {
+        utility
+            .tree
+            .video
+            .SetContent(None::<&windows::core::IUnknown>)
+            .map_err(|error| error.to_string())?;
+        utility
+            .tree
+            .device
+            .Commit()
+            .map_err(|error| error.to_string())?;
+        SetWindowLongPtrW(utility.hwnd, GWLP_USERDATA, 0);
+        let _ = DestroyWindow(utility.hwnd);
+    }
+    eprintln!("VIDEO_PLAYER_UTILITY=CLOSED;KIND={}", utility.kind.as_str());
+    Ok(true)
+}
+
 fn close_webview(webview: &WebViewHost) -> Result<(), String> {
     unsafe {
         webview
@@ -2292,6 +3211,18 @@ fn close_webview(webview: &WebViewHost) -> Result<(), String> {
 }
 
 fn current_aspect_ratio(state: &HostUi) -> Option<f64> {
+    if let Some(ratio) = state
+        .mpv
+        .get_double("video-params/aspect")
+        .filter(|value| value.is_finite() && *value > 0.0)
+    {
+        return Some(ratio);
+    }
+    let display_width = state.mpv.get_int64("video-params/dw").unwrap_or(0);
+    let display_height = state.mpv.get_int64("video-params/dh").unwrap_or(0);
+    if display_width > 0 && display_height > 0 {
+        return Some(display_width as f64 / display_height as f64);
+    }
     let width = state.mpv.get_int64("video-params/w").unwrap_or(0);
     let height = state.mpv.get_int64("video-params/h").unwrap_or(0);
     if width > 0 && height > 0 {
@@ -2362,6 +3293,75 @@ fn create_pip_window(main_hwnd: HWND, ratio: f64) -> Result<HWND, String> {
     }
 }
 
+fn create_utility_window(main_hwnd: HWND, kind: UtilityWindowKind) -> Result<HWND, String> {
+    unsafe {
+        let monitor = MonitorFromWindow(main_hwnd, MONITOR_DEFAULTTONEAREST);
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        if !GetMonitorInfoW(monitor, &mut info).as_bool() {
+            return Err(format!(
+                "UTILITY_MONITOR_INFO_FAILED: {}",
+                windows::core::Error::from_win32()
+            ));
+        }
+        let (requested_width, requested_height) = kind.client_size();
+        let work_width = (info.rcWork.right - info.rcWork.left).max(1);
+        let work_height = (info.rcWork.bottom - info.rcWork.top).max(1);
+        let client_width = requested_width.min(work_width.saturating_sub(32)).max(360);
+        let client_height = requested_height
+            .min(work_height.saturating_sub(32))
+            .max(320);
+        let outer = outer_size_for_utility_client(client_width, client_height)?;
+        let mut main_rect = RECT::default();
+        GetWindowRect(main_hwnd, &mut main_rect).map_err(|error| error.to_string())?;
+        let margin = 16;
+        let (x, y) = centered_utility_position(&main_rect, &info.rcWork, outer, margin);
+        let instance = GetModuleHandleW(None).map_err(|error| error.to_string())?;
+        let class_name = wide_null_str("SakuravaVideoPlayerUtilityHost");
+        let title = wide_null_str(kind.title());
+        CreateWindowExW(
+            utility_window_ex_style(),
+            PCWSTR(class_name.as_ptr()),
+            PCWSTR(title.as_ptr()),
+            utility_window_style(),
+            x,
+            y,
+            outer.0,
+            outer.1,
+            Some(main_hwnd),
+            None::<HMENU>,
+            Some(instance.into()),
+            None,
+        )
+        .map_err(|error| format!("UTILITY_WINDOW_CREATE_FAILED: {error}"))
+    }
+}
+
+fn utility_window_style() -> WINDOW_STYLE {
+    WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+}
+
+fn utility_window_ex_style() -> WINDOW_EX_STYLE {
+    WS_EX_NOREDIRECTIONBITMAP
+}
+
+fn centered_utility_position(
+    main: &RECT,
+    work: &RECT,
+    outer: (i32, i32),
+    margin: i32,
+) -> (i32, i32) {
+    let x = (main.left + (main.right - main.left - outer.0) / 2)
+        .min(work.right - outer.0 - margin)
+        .max(work.left + margin);
+    let y = (main.top + (main.bottom - main.top - outer.1) / 2)
+        .min(work.bottom - outer.1 - margin)
+        .max(work.top + margin);
+    (x, y)
+}
+
 fn outer_size_for_client(width: i32, height: i32) -> Result<(i32, i32), String> {
     let mut rect = RECT {
         left: 0,
@@ -2376,6 +3376,44 @@ fn outer_size_for_client(width: i32, height: i32) -> Result<(i32, i32), String> 
     Ok((rect.right - rect.left, rect.bottom - rect.top))
 }
 
+fn outer_size_for_main_client(width: i32, height: i32) -> Result<(i32, i32), String> {
+    let mut rect = RECT {
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: height,
+    };
+    unsafe {
+        AdjustWindowRectEx(
+            &mut rect,
+            WS_OVERLAPPEDWINDOW,
+            false,
+            WINDOW_EX_STYLE::default(),
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    Ok((rect.right - rect.left, rect.bottom - rect.top))
+}
+
+fn outer_size_for_utility_client(width: i32, height: i32) -> Result<(i32, i32), String> {
+    let mut rect = RECT {
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: height,
+    };
+    unsafe {
+        AdjustWindowRectEx(
+            &mut rect,
+            utility_window_style(),
+            false,
+            utility_window_ex_style(),
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    Ok((rect.right - rect.left, rect.bottom - rect.top))
+}
+
 fn constrain_pip_sizing(state: &HostUi, edge: usize, rect: &mut RECT) {
     let Some(pip) = state.pip.as_ref() else {
         return;
@@ -2385,6 +3423,16 @@ fn constrain_pip_sizing(state: &HostUi, edge: usize, rect: &mut RECT) {
         .unwrap_or((320, (320.0 / ratio).round() as i32));
     let frame_width = frame.0 - 320;
     let frame_height = frame.1 - (320.0 / ratio).round() as i32;
+    constrain_sizing_to_ratio(edge, rect, ratio, frame_width, frame_height);
+}
+
+fn constrain_sizing_to_ratio(
+    edge: usize,
+    rect: &mut RECT,
+    ratio: f64,
+    frame_width: i32,
+    frame_height: i32,
+) {
     let outer_width = rect.right - rect.left;
     let outer_height = rect.bottom - rect.top;
     let width_driven = [
@@ -2414,6 +3462,18 @@ fn constrain_pip_sizing(state: &HostUi, edge: usize, rect: &mut RECT) {
 }
 
 fn shutdown_ui(state: &mut HostUi) -> Result<(), String> {
+    while let Some(utility) = state.utilities.pop() {
+        close_webview(&utility.webview)?;
+        unsafe {
+            utility
+                .tree
+                .video
+                .SetContent(None::<&windows::core::IUnknown>)
+                .map_err(|error| error.to_string())?;
+            SetWindowLongPtrW(utility.hwnd, GWLP_USERDATA, 0);
+            let _ = DestroyWindow(utility.hwnd);
+        }
+    }
     if let Some(pip) = state.pip.take() {
         close_webview(&pip.webview)?;
         unsafe {
@@ -2479,6 +3539,31 @@ unsafe extern "system" fn window_proc(
         }
         return LRESULT(0);
     }
+    if !raw.is_null()
+        && matches!(
+            message,
+            WM_HOST_OPEN_SUBTITLE_APPEARANCE | WM_HOST_OPEN_SHORTCUTS
+        )
+    {
+        let cell = &*raw;
+        let kind = if message == WM_HOST_OPEN_SUBTITLE_APPEARANCE {
+            UtilityWindowKind::SubtitleAppearance
+        } else {
+            UtilityWindowKind::Shortcuts
+        };
+        if let Err(error) = open_utility_window_from_cell(cell, kind) {
+            eprintln!(
+                "VIDEO_PLAYER_UTILITY_ERROR={};KIND={}",
+                error,
+                kind.as_str()
+            );
+            if let Ok(mut state) = cell.try_borrow_mut() {
+                state.last_command_error = Some(ipc_error("UTILITY_WINDOW_OPEN_FAILED", error));
+                let _ = post_snapshot(&mut state);
+            }
+        }
+        return LRESULT(0);
+    }
     if !raw.is_null() {
         let cell = &*raw;
         if let Ok(mut state) = cell.try_borrow_mut() {
@@ -2515,6 +3600,10 @@ unsafe extern "system" fn window_proc(
                     return LRESULT(0);
                 }
                 WM_CLOSE => {
+                    if state.utilities.iter().any(|utility| utility.hwnd == hwnd) {
+                        let _ = close_utility_window(&mut state, hwnd);
+                        return LRESULT(0);
+                    }
                     if state.pip.as_ref().is_some_and(|pip| pip.hwnd == hwnd) {
                         let _ = PostMessageW(
                             Some(state.hwnd),
@@ -2536,7 +3625,7 @@ unsafe extern "system" fn window_proc(
                     }
                     return LRESULT(0);
                 }
-                WM_SETCURSOR => {
+                WM_SETCURSOR if should_apply_webview_cursor(low_word(lparam.0) as u32) => {
                     if let Some(webview) = webview_for_hwnd(&state, hwnd) {
                         if apply_webview_cursor(&webview.composition).is_ok() {
                             return LRESULT(1);
@@ -2549,6 +3638,18 @@ unsafe extern "system" fn window_proc(
                             .controller
                             .MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
                     }
+                }
+                WM_DROPFILES => {
+                    let result = match dropped_paths(wparam) {
+                        Ok(paths) if paths.len() == 1 => {
+                            load_external_subtitle_path(&mut state, &paths[0], true)
+                        }
+                        Ok(_) => Err("SUBTITLE_DROP_REQUIRES_ONE_FILE".into()),
+                        Err(error) => Err(error),
+                    };
+                    post_subtitle_drop_result(&mut state, result);
+                    let _ = post_snapshot(&mut state);
+                    return LRESULT(0);
                 }
                 WM_LBUTTONDOWN | WM_LBUTTONUP | WM_MBUTTONDOWN | WM_MBUTTONUP | WM_RBUTTONDOWN
                 | WM_RBUTTONUP | WM_MOUSEMOVE | WM_MOUSEWHEEL => {
@@ -2622,6 +3723,22 @@ unsafe extern "system" fn window_proc(
                     constrain_pip_sizing(&state, wparam.0, rect);
                     return LRESULT(1);
                 }
+                WM_GETMINMAXINFO if hwnd == state.hwnd => {
+                    let info = &mut *(lparam.0 as *mut MINMAXINFO);
+                    if let Ok((width, height)) = outer_size_for_main_client(560, 360) {
+                        info.ptMinTrackSize.x = width;
+                        info.ptMinTrackSize.y = height;
+                    }
+                    return LRESULT(0);
+                }
+                WM_GETMINMAXINFO if state.utilities.iter().any(|utility| utility.hwnd == hwnd) => {
+                    let info = &mut *(lparam.0 as *mut MINMAXINFO);
+                    if let Ok((width, height)) = outer_size_for_utility_client(360, 320) {
+                        info.ptMinTrackSize.x = width;
+                        info.ptMinTrackSize.y = height;
+                    }
+                    return LRESULT(0);
+                }
                 WM_GETMINMAXINFO if state.pip.as_ref().is_some_and(|pip| pip.hwnd == hwnd) => {
                     let info = &mut *(lparam.0 as *mut MINMAXINFO);
                     let ratio = state
@@ -2657,6 +3774,13 @@ fn webview_for_hwnd(state: &HostUi, hwnd: HWND) -> Option<&WebViewHost> {
             .as_ref()
             .filter(|pip| pip.hwnd == hwnd)
             .map(|pip| &pip.webview)
+            .or_else(|| {
+                state
+                    .utilities
+                    .iter()
+                    .find(|utility| utility.hwnd == hwnd)
+                    .map(|utility| &utility.webview)
+            })
     }
 }
 
@@ -2669,6 +3793,10 @@ fn apply_webview_cursor(composition: &ICoreWebView2CompositionController) -> Res
         SetCursor(Some(cursor));
     }
     Ok(())
+}
+
+fn should_apply_webview_cursor(hit_test: u32) -> bool {
+    hit_test == HTCLIENT
 }
 
 fn mouse_kind(message: u32) -> COREWEBVIEW2_MOUSE_EVENT_KIND {
@@ -2787,6 +3915,255 @@ mod tests {
     }
 
     #[test]
+    fn subtitle_position_modes_use_semantic_renderer_anchors() {
+        assert_eq!(
+            SubtitlePositionMode::parse("source"),
+            Some(SubtitlePositionMode::Source)
+        );
+        assert_eq!(
+            SubtitlePositionMode::parse("bottom"),
+            Some(SubtitlePositionMode::Bottom)
+        );
+        assert_eq!(
+            SubtitlePositionMode::parse("middle"),
+            Some(SubtitlePositionMode::Middle)
+        );
+        assert_eq!(
+            SubtitlePositionMode::parse("top"),
+            Some(SubtitlePositionMode::Top)
+        );
+        assert_eq!(SubtitlePositionMode::parse("side"), None);
+        assert_eq!(SubtitlePositionMode::Source.ass_alignment(), None);
+        assert_eq!(SubtitlePositionMode::Bottom.ass_alignment(), Some(2));
+        assert_eq!(SubtitlePositionMode::Middle.ass_alignment(), Some(2));
+        assert_eq!(SubtitlePositionMode::Top.ass_alignment(), Some(2));
+        for mode in [
+            SubtitlePositionMode::Source,
+            SubtitlePositionMode::Bottom,
+            SubtitlePositionMode::Middle,
+            SubtitlePositionMode::Top,
+        ] {
+            assert_eq!(mode.plain_horizontal_alignment(), "center");
+            assert_eq!(mode.plain_vertical_alignment(), "bottom");
+        }
+    }
+
+    #[test]
+    fn subtitle_safe_area_and_adjustment_follow_the_semantic_position_contract() {
+        fn assert_position(mode: SubtitlePositionMode, adjustment: f64, inset: f64, expected: f64) {
+            let actual = subtitle_effective_position(mode, adjustment, inset).unwrap();
+            assert!(
+                (actual - expected).abs() < 0.001,
+                "expected {expected}, got {actual}"
+            );
+        }
+
+        assert_position(SubtitlePositionMode::Source, 40.0, 0.0, 100.0);
+        assert_position(SubtitlePositionMode::Source, 40.0, 0.2, 80.0);
+
+        assert_position(SubtitlePositionMode::Bottom, 0.0, 0.0, 100.0);
+        assert_position(SubtitlePositionMode::Bottom, 20.0, 0.0, 93.333_333);
+        assert_position(SubtitlePositionMode::Bottom, 100.0, 0.0, 66.666_667);
+        assert_position(SubtitlePositionMode::Bottom, -100.0, 0.0, 100.0);
+        assert_position(SubtitlePositionMode::Bottom, 0.0, 0.2, 80.0);
+        assert_position(SubtitlePositionMode::Bottom, 20.0, 0.2, 80.0);
+        assert_position(SubtitlePositionMode::Bottom, 100.0, 0.2, 66.666_667);
+
+        assert_position(SubtitlePositionMode::Middle, 0.0, 0.0, 50.0);
+        assert_position(SubtitlePositionMode::Middle, 0.0, 0.2, 50.0);
+        assert_position(SubtitlePositionMode::Middle, 100.0, 0.2, 33.333_333);
+        assert_position(SubtitlePositionMode::Middle, -100.0, 0.2, 66.666_667);
+
+        assert_position(SubtitlePositionMode::Top, 0.0, 0.2, 16.666_667);
+        assert_position(SubtitlePositionMode::Top, 100.0, 0.2, 0.0);
+        assert_position(SubtitlePositionMode::Top, -100.0, 0.2, 33.333_333);
+
+        assert_eq!(
+            subtitle_effective_position(SubtitlePositionMode::Bottom, 0.0, 1.0),
+            None
+        );
+        assert_eq!(
+            subtitle_effective_position(SubtitlePositionMode::Bottom, 0.0, 1.1),
+            None
+        );
+        assert_eq!(
+            subtitle_effective_position(SubtitlePositionMode::Bottom, f64::NAN, 0.0),
+            None
+        );
+    }
+
+    #[test]
+    fn middle_position_uses_rendered_center_for_different_subtitle_heights() {
+        let one_line = SubtitleRenderedGeometry {
+            x: 220,
+            y: 410,
+            width: 520,
+            height: 40,
+            output_width: 960,
+            output_height: 540,
+            change_id: 10,
+        };
+        let multi_line = SubtitleRenderedGeometry {
+            y: 330,
+            height: 120,
+            change_id: 11,
+            ..one_line
+        };
+
+        let one_line_position = subtitle_middle_corrected_position(50.0, 0.5, one_line).unwrap();
+        let multi_line_position =
+            subtitle_middle_corrected_position(50.0, 0.5, multi_line).unwrap();
+
+        assert!((one_line_position - 20.370_370).abs() < 0.001);
+        assert!((multi_line_position - 27.777_778).abs() < 0.001);
+        assert_ne!(one_line_position, multi_line_position);
+    }
+
+    #[test]
+    fn middle_adjustment_preserves_upward_positive_and_downward_negative_direction() {
+        let geometry = SubtitleRenderedGeometry {
+            x: 220,
+            y: 250,
+            width: 520,
+            height: 40,
+            output_width: 960,
+            output_height: 540,
+            change_id: 12,
+        };
+        let upward_target =
+            subtitle_effective_position(SubtitlePositionMode::Middle, 100.0, 0.0).unwrap() / 100.0;
+        let downward_target =
+            subtitle_effective_position(SubtitlePositionMode::Middle, -100.0, 0.0).unwrap() / 100.0;
+
+        let upward = subtitle_middle_corrected_position(50.0, upward_target, geometry).unwrap();
+        let downward = subtitle_middle_corrected_position(50.0, downward_target, geometry).unwrap();
+
+        assert!(upward < 50.0);
+        assert!(downward > 50.0);
+    }
+
+    #[test]
+    fn subtitle_positioning_composes_with_explicit_ass_style_overrides() {
+        let appearance = subtitle_ass_style_overrides(
+            "Georgia",
+            true,
+            42.0,
+            true,
+            "#FF102030",
+            true,
+            "#80405060",
+            true,
+            "shadow",
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            subtitle_ass_style_overrides_with_position(&appearance, SubtitlePositionMode::Source),
+            appearance,
+        );
+        assert_eq!(
+            subtitle_ass_style_overrides_with_position(&appearance, SubtitlePositionMode::Bottom),
+            format!("{appearance},Alignment=2"),
+        );
+        assert_eq!(
+            subtitle_ass_style_overrides_with_position(&appearance, SubtitlePositionMode::Middle),
+            format!("{appearance},Alignment=2"),
+        );
+        assert_eq!(
+            subtitle_ass_style_overrides_with_position(&appearance, SubtitlePositionMode::Top),
+            format!("{appearance},Alignment=2"),
+        );
+        assert_eq!(
+            subtitle_ass_override_mode("", SubtitlePositionMode::Source, 0.0),
+            "no"
+        );
+        assert_eq!(
+            subtitle_ass_override_mode("", SubtitlePositionMode::Source, 0.2),
+            "yes"
+        );
+        assert_eq!(
+            subtitle_ass_override_mode("", SubtitlePositionMode::Bottom, 0.0),
+            "yes"
+        );
+        assert_eq!(
+            subtitle_ass_override_mode("", SubtitlePositionMode::Middle, 0.0),
+            "yes"
+        );
+        assert_eq!(
+            subtitle_ass_override_mode("", SubtitlePositionMode::Top, 0.0),
+            "yes"
+        );
+    }
+
+    #[test]
+    fn sizing_constraint_preserves_video_client_ratio() {
+        let mut rect = RECT {
+            left: 0,
+            top: 0,
+            right: 1000,
+            bottom: 700,
+        };
+        constrain_sizing_to_ratio(WMSZ_RIGHT as usize, &mut rect, 16.0 / 9.0, 16, 39);
+        let client_width = rect.right - rect.left - 16;
+        let client_height = rect.bottom - rect.top - 39;
+        assert!((client_width as f64 / client_height as f64 - 16.0 / 9.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn webview_cursor_does_not_mask_native_resize_affordances() {
+        use windows::Win32::UI::WindowsAndMessaging::{HTBOTTOMRIGHT, HTLEFT, HTTOP};
+
+        assert!(should_apply_webview_cursor(HTCLIENT));
+        assert!(!should_apply_webview_cursor(HTLEFT));
+        assert!(!should_apply_webview_cursor(HTTOP));
+        assert!(!should_apply_webview_cursor(HTBOTTOMRIGHT));
+    }
+
+    #[test]
+    fn utility_window_is_centered_on_main_and_clamped_to_work_area() {
+        let main = RECT {
+            left: 200,
+            top: 100,
+            right: 1200,
+            bottom: 900,
+        };
+        let work = RECT {
+            left: 0,
+            top: 0,
+            right: 1920,
+            bottom: 1040,
+        };
+        assert_eq!(
+            centered_utility_position(&main, &work, (400, 300), 16),
+            (500, 350)
+        );
+
+        let edge_main = RECT {
+            left: 1700,
+            top: 900,
+            right: 1900,
+            bottom: 1030,
+        };
+        assert_eq!(
+            centered_utility_position(&edge_main, &work, (400, 300), 16),
+            (1504, 724)
+        );
+    }
+
+    #[test]
+    fn utility_window_has_close_only_native_chrome_and_composition_transparency() {
+        use windows::Win32::UI::WindowsAndMessaging::{WS_MAXIMIZEBOX, WS_MINIMIZEBOX};
+
+        let style = utility_window_style();
+        assert_ne!(style.0 & WS_CAPTION.0, 0);
+        assert_ne!(style.0 & WS_SYSMENU.0, 0);
+        assert_ne!(style.0 & WS_THICKFRAME.0, 0);
+        assert_eq!(style.0 & WS_MINIMIZEBOX.0, 0);
+        assert_eq!(style.0 & WS_MAXIMIZEBOX.0, 0);
+        assert_ne!(utility_window_ex_style().0 & WS_EX_NOREDIRECTIONBITMAP.0, 0);
+    }
+
+    #[test]
     fn contact_sheet_capture_requires_current_seek_restart_and_completed_seek() {
         assert!(!seek_capture_ready(false, true, Some(false), Some(6.0)));
         assert!(!seek_capture_ready(true, false, Some(false), Some(6.0)));
@@ -2838,6 +4215,8 @@ mod tests {
             PlayerCommandKind::SetSubtitleDelay,
             PlayerCommandKind::SetSubtitleInset,
             PlayerCommandKind::OpenExternally,
+            PlayerCommandKind::OpenSubtitleAppearance,
+            PlayerCommandKind::OpenShortcuts,
             PlayerCommandKind::ToggleFullscreen,
             PlayerCommandKind::EnterPip,
             PlayerCommandKind::ReturnFromPip,
@@ -2845,6 +4224,8 @@ mod tests {
         let json = serde_json::to_string(&allowed).unwrap();
         assert!(json.contains("frameStep"));
         assert!(json.contains("enterPip"));
+        assert!(json.contains("openSubtitleAppearance"));
+        assert!(json.contains("openShortcuts"));
         assert!(!json.contains("raw"));
         assert!(!json.contains("shell"));
     }
@@ -2870,5 +4251,61 @@ mod tests {
             subtitle_rgba(&invalid, "textColor", "textOpacity").unwrap_err(),
             "SUBTITLE_COLOR_INVALID"
         );
+    }
+
+    #[test]
+    fn auxiliary_utilities_share_the_contact_sheet_landscape_geometry() {
+        assert_eq!(
+            UtilityWindowKind::SubtitleAppearance.client_size(),
+            (1100, 760)
+        );
+        assert_eq!(UtilityWindowKind::Shortcuts.client_size(), (1100, 760));
+    }
+
+    #[test]
+    fn subtitle_style_keeps_authored_ass_until_explicit_selective_overrides_and_reset() {
+        assert_eq!(
+            subtitle_ass_style_overrides(
+                "sans-serif",
+                false,
+                42.0,
+                false,
+                "#FFFFFFFF",
+                false,
+                "#00000000",
+                false,
+                "outline",
+                false,
+            )
+            .unwrap(),
+            ""
+        );
+        assert_eq!(
+            subtitle_ass_style_overrides(
+                "Georgia",
+                true,
+                56.0,
+                true,
+                "#80AA00FF",
+                true,
+                "#BF112233",
+                true,
+                "shadow",
+                true,
+            )
+            .unwrap(),
+            "FontName=Georgia,FontSize=56,PrimaryColour=&H7FFF00AA,BackColour=&H40332211,BorderStyle=4,Outline=0,Shadow=2"
+        );
+        assert_eq!(subtitle_ass_color("#80AA00FF").unwrap(), "&H7FFF00AA");
+        assert_eq!(
+            subtitle_ass_override_mode("", SubtitlePositionMode::Source, 0.0),
+            "no"
+        );
+        assert_eq!(
+            subtitle_ass_override_mode("FontName=Georgia", SubtitlePositionMode::Source, 0.0),
+            "yes"
+        );
+        assert_eq!(subtitle_border_style("#00000000"), "outline-and-shadow");
+        assert_eq!(subtitle_border_style("#BF112233"), "background-box");
     }
 }

@@ -5,26 +5,39 @@ import { PLAYER_CONTROLS_IDLE_MS, usePlayerControlsVisibility } from "./usePlaye
 afterEach(() => vi.useRealTimers());
 
 describe("usePlayerControlsVisibility", () => {
-  it("hides playing controls after three seconds and reveals on activity", () => {
+  it("hides controls after 1.5 seconds and reveals on pointer activity", () => {
     vi.useFakeTimers();
-    const { result } = renderHook(() => usePlayerControlsVisibility({ playing: true, held: false }));
+    const { result } = renderHook(() => usePlayerControlsVisibility());
     act(() => vi.advanceTimersByTime(PLAYER_CONTROLS_IDLE_MS));
     expect(result.current.visible).toBe(false);
     act(() => result.current.reveal());
     expect(result.current.visible).toBe(true);
   });
 
-  it("keeps paused or actively held controls visible", () => {
+  it("holds during active interaction and restarts the timer when released", () => {
     vi.useFakeTimers();
-    const { result, rerender } = renderHook(
-      ({ playing, held }) => usePlayerControlsVisibility({ playing, held }),
-      { initialProps: { playing: true, held: false } },
-    );
-    rerender({ playing: true, held: true });
+    const { result } = renderHook(() => usePlayerControlsVisibility());
+    act(() => result.current.acquireHold("timeline-seek"));
     act(() => vi.advanceTimersByTime(PLAYER_CONTROLS_IDLE_MS * 2));
     expect(result.current.visible).toBe(true);
-    rerender({ playing: false, held: false });
-    act(() => vi.advanceTimersByTime(PLAYER_CONTROLS_IDLE_MS * 2));
-    expect(result.current.visible).toBe(true);
+    act(() => result.current.releaseHold("timeline-seek"));
+    act(() => vi.advanceTimersByTime(PLAYER_CONTROLS_IDLE_MS));
+    expect(result.current.visible).toBe(false);
   });
+
+  it("keeps independent interaction owners from releasing each other", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => usePlayerControlsVisibility());
+    act(() => {
+      result.current.acquireHold("timeline-seek");
+      result.current.acquireHold("volume-adjust");
+      result.current.releaseHold("timeline-seek");
+    });
+    act(() => vi.advanceTimersByTime(PLAYER_CONTROLS_IDLE_MS * 2));
+    expect(result.current.visible).toBe(true);
+    act(() => result.current.releaseHold("volume-adjust"));
+    act(() => vi.advanceTimersByTime(PLAYER_CONTROLS_IDLE_MS));
+    expect(result.current.visible).toBe(false);
+  });
+
 });

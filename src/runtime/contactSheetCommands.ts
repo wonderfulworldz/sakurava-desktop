@@ -1,7 +1,7 @@
 import { invokeTauriCommand } from "./tauriClient";
 
-export type ContactSheetGrid = 3 | 4 | 5;
 export type ContactSheetFormat = "jpeg" | "png";
+export type ContactSheetTheme = "light" | "dark";
 
 export type ContactSheetGenerationResult = {
   requestId: string;
@@ -15,17 +15,26 @@ export type ContactSheetGenerationResult = {
 
 export function generateContactSheet(input: {
   sourceIdentity: string;
-  grid: ContactSheetGrid;
+  rows: number;
+  columns: number;
   width: number;
   quality: number;
   timestamp: boolean;
   header: boolean;
+  subtitles: boolean;
+  subtitleId: number | null;
+  subtitlePath: string | null;
+  theme: ContactSheetTheme;
   format: ContactSheetFormat;
 }) {
   return invokeTauriCommand<ContactSheetGenerationResult>(
     "video_contact_sheet_generate",
     { input },
   );
+}
+
+export function getContactSheetProgress() {
+  return invokeTauriCommand<{ completed: number; total: number }>("video_contact_sheet_progress");
 }
 
 export function saveContactSheet(previewPath: string, destinationPath: string) {

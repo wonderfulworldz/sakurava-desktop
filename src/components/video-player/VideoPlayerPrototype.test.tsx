@@ -3,9 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../../lib/LanguageContext";
 import * as videoPlayerWindows from "../../runtime/videoPlayerWindows";
 import VideoPlayerPrototype, {
+  ShortcutDialog,
   VIDEO_PLAYER_SHORTCUT_DEFAULTS,
   type VideoPlayerPlaybackAdapter,
 } from "./VideoPlayerPrototype";
+import SubtitleSettingsDialog from "./SubtitleSettingsDialog";
+import { VIDEO_PLAYER_SUBTITLE_DEFAULTS } from "../../lib/videoPlayerPreferences";
 
 const SHORTCUT_TEST_IDS = [
   "shortcut-capture-playPause",
@@ -18,7 +21,10 @@ const SHORTCUT_TEST_IDS = [
   "shortcut-capture-fullscreen",
 ];
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 function renderPlayer() {
   return render(
@@ -30,6 +36,25 @@ function renderPlayer() {
       />
     </LanguageProvider>,
   );
+}
+
+function renderShortcutDialog(
+  onSave = vi.fn(),
+  onCancel = vi.fn(),
+) {
+  return {
+    onSave,
+    onCancel,
+    view: render(
+      <LanguageProvider>
+        <ShortcutDialog
+          shortcuts={VIDEO_PLAYER_SHORTCUT_DEFAULTS}
+          onSave={onSave}
+          onCancel={onCancel}
+        />
+      </LanguageProvider>,
+    ),
+  };
 }
 
 function productionPlayback(overrides: Partial<VideoPlayerPlaybackAdapter> = {}): VideoPlayerPlaybackAdapter {
@@ -50,6 +75,7 @@ function productionPlayback(overrides: Partial<VideoPlayerPlaybackAdapter> = {})
     presentation: "main" as const,
     fullscreen: false,
     status: "ready" as const,
+    sourceIdentity: "video:fixture",
     onPause: vi.fn(),
     onPlay: vi.fn(),
     onSeek: vi.fn(),
@@ -146,14 +172,224 @@ describe("VideoPlayerPrototype", () => {
     expect(playback.onToggleFullscreen).toHaveBeenCalledTimes(1);
   });
 
-  it("makes hidden playing controls non-interactive after three seconds", () => {
+  it("makes idle controls non-interactive after 1.5 seconds and keeps them hidden for keyboard play", () => {
     vi.useFakeTimers();
-    const playback = productionPlayback({ paused: false });
+    const playback = productionPlayback({ paused: true });
     render(<LanguageProvider><VideoPlayerPrototype displayName="Idle Fixture" resolution="640 × 360" durationLabel="2 min" playback={playback} /></LanguageProvider>);
     const controls = screen.getByLabelText("Video player controls");
-    act(() => vi.advanceTimersByTime(3000));
+    act(() => vi.advanceTimersByTime(1500));
     expect(controls).toHaveAttribute("aria-hidden", "true");
     expect(controls).toHaveAttribute("inert");
+    fireEvent.keyDown(window, { key: " " });
+    expect(playback.onPlay).toHaveBeenCalledTimes(1);
+    expect(controls).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("publishes one source-agnostic control clearance across hide, reveal, and reflow", () => {
+    vi.useFakeTimers();
+    const onSetSubtitleInset = vi.fn();
+    let storedPreferences = JSON.stringify({ version: 3, subtitles: { basePosition: "source" } });
+    const preferenceStorage = {
+      getItem: () => storedPreferences,
+      setItem: vi.fn(),
+    };
+    const rect = {
+      x: 0,
+      y: 672,
+      top: 672,
+      left: 0,
+      right: 1162,
+      bottom: 800,
+      width: 1162,
+      height: 128,
+      toJSON: () => ({}),
+    };
+    const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(rect);
+    const playback = productionPlayback({ onSetSubtitleInset });
+    const view = render(
+      <LanguageProvider>
+        <VideoPlayerPrototype
+          displayName="Subtitle Inset Fixture"
+          resolution="640 × 360"
+          durationLabel="2 min"
+          playback={playback}
+          preferenceStorage={preferenceStorage}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(onSetSubtitleInset).toHaveBeenLastCalledWith({
+      safeAreaBottomRatio: 112 / 768,
+      overlapCssPixels: 96,
+      viewportWidthCssPixels: 1024,
+      viewportHeightCssPixels: 768,
+      deviceScaleFactor: 1,
+    });
+    act(() => vi.advanceTimersByTime(1500));
+    expect(onSetSubtitleInset).toHaveBeenLastCalledWith({
+      safeAreaBottomRatio: 0,
+      overlapCssPixels: 0,
+      viewportWidthCssPixels: 1024,
+      viewportHeightCssPixels: 768,
+      deviceScaleFactor: 1,
+    });
+    fireEvent.pointerMove(screen.getByLabelText("Sakurava Video Player"));
+    expect(onSetSubtitleInset).toHaveBeenLastCalledWith(expect.objectContaining({
+      safeAreaBottomRatio: 112 / 768,
+      overlapCssPixels: 96,
+    }));
+    rectSpy.mockReturnValue({
+      ...rect,
+      y: 620,
+      top: 620,
+      height: 180,
+    });
+    fireEvent(window, new Event("resize"));
+    expect(onSetSubtitleInset).toHaveBeenLastCalledWith(expect.objectContaining({
+      safeAreaBottomRatio: 164 / 768,
+      overlapCssPixels: 148,
+    }));
+    const latestInsetCall = onSetSubtitleInset.mock.calls[onSetSubtitleInset.mock.calls.length - 1];
+    expect(latestInsetCall?.[0]).not.toHaveProperty("sourceType");
+    const callsBeforeFullscreen = onSetSubtitleInset.mock.calls.length;
+    view.rerender(
+      <LanguageProvider>
+        <VideoPlayerPrototype
+          displayName="Subtitle Inset Fixture"
+          resolution="640 × 360"
+          durationLabel="2 min"
+          playback={{ ...playback, fullscreen: true }}
+        />
+      </LanguageProvider>,
+    );
+    expect(onSetSubtitleInset.mock.calls.length).toBe(callsBeforeFullscreen + 1);
+    expect(onSetSubtitleInset).toHaveBeenLastCalledWith(expect.objectContaining({
+      safeAreaBottomRatio: 164 / 768,
+      overlapCssPixels: 148,
+    }));
+    storedPreferences = JSON.stringify({ version: 3, subtitles: { basePosition: "middle", verticalAdjustment: 40 } });
+    view.rerender(
+      <LanguageProvider>
+        <VideoPlayerPrototype
+          key="middle"
+          displayName="Subtitle Inset Fixture"
+          resolution="640 × 360"
+          durationLabel="2 min"
+          playback={{ ...playback, fullscreen: true }}
+          preferenceStorage={preferenceStorage}
+        />
+      </LanguageProvider>,
+    );
+    expect(onSetSubtitleInset).toHaveBeenLastCalledWith(expect.objectContaining({ safeAreaBottomRatio: 0 }));
+    storedPreferences = JSON.stringify({ version: 3, subtitles: { basePosition: "top", verticalAdjustment: 40 } });
+    view.rerender(
+      <LanguageProvider>
+        <VideoPlayerPrototype
+          key="top"
+          displayName="Subtitle Inset Fixture"
+          resolution="640 × 360"
+          durationLabel="2 min"
+          playback={{ ...playback, fullscreen: true }}
+          preferenceStorage={preferenceStorage}
+        />
+      </LanguageProvider>,
+    );
+    expect(onSetSubtitleInset).toHaveBeenLastCalledWith(expect.objectContaining({ safeAreaBottomRatio: 0 }));
+    storedPreferences = JSON.stringify({ version: 3, subtitles: { basePosition: "bottom", verticalAdjustment: 40 } });
+    view.rerender(
+      <LanguageProvider>
+        <VideoPlayerPrototype
+          key="bottom"
+          displayName="Subtitle Inset Fixture"
+          resolution="640 × 360"
+          durationLabel="2 min"
+          playback={{ ...playback, fullscreen: true }}
+          preferenceStorage={preferenceStorage}
+        />
+      </LanguageProvider>,
+    );
+    expect(onSetSubtitleInset).toHaveBeenLastCalledWith(expect.objectContaining({ safeAreaBottomRatio: 164 / 768 }));
+    rectSpy.mockRestore();
+  });
+
+  it("restores remembered playback, loop, and subtitle settings for a new session", () => {
+    const preferenceStorage = {
+      getItem: () => JSON.stringify({
+      version: 2,
+      playback: {
+        speed: 1.5,
+        volume: 44,
+        muted: true,
+      },
+      sources: { "video:remembered": {
+        loopEnabled: true,
+        loopASeconds: 10,
+        loopBSeconds: 30,
+        subtitlesEnabled: true,
+        subtitleTrackId: 4,
+        positionSeconds: 50,
+      } },
+      }),
+      setItem: vi.fn(),
+    };
+    const playback = productionPlayback({
+      sessionId: "remembered-session",
+      sourceIdentity: "video:remembered",
+      onSetMuted: vi.fn(),
+    });
+    const view = render(<LanguageProvider><VideoPlayerPrototype displayName="Remembered Fixture" resolution="640 × 360" durationLabel="2 min" playback={playback} preferenceStorage={preferenceStorage} /></LanguageProvider>);
+    expect(playback.onSetSpeed).toHaveBeenCalledWith(1.5);
+    const rerender = (overrides: Partial<VideoPlayerPlaybackAdapter>) => view.rerender(
+      <LanguageProvider><VideoPlayerPrototype displayName="Remembered Fixture" resolution="640 × 360" durationLabel="2 min" playback={{ ...playback, ...overrides }} preferenceStorage={preferenceStorage} /></LanguageProvider>,
+    );
+    rerender({ speed: 1.5 });
+    expect(playback.onSetVolume).toHaveBeenCalledWith(44);
+    rerender({ speed: 1.5, volume: 44 });
+    expect(playback.onSetMuted).toHaveBeenCalledWith(true);
+    rerender({ speed: 1.5, volume: 44, muted: true });
+    expect(playback.onSetLoopA).toHaveBeenCalledWith(10);
+    rerender({ speed: 1.5, volume: 44, muted: true, loopASeconds: 10 });
+    expect(playback.onSetLoopB).toHaveBeenCalledWith(30);
+    rerender({ speed: 1.5, volume: 44, muted: true, loopASeconds: 10, loopBSeconds: 30, loopEnabled: true });
+    expect(playback.onSetSubtitleTrack).toHaveBeenCalledWith(4);
+    rerender({ speed: 1.5, volume: 44, muted: true, loopASeconds: 10, loopBSeconds: 30, loopEnabled: true, activeSubtitleId: 4 });
+    expect(playback.onSeek).toHaveBeenCalledWith(50);
+  });
+
+  it("remembers engine-confirmed loop and subtitle changes without persisting pause state", () => {
+    vi.useFakeTimers();
+    let storedValue: string | null = null;
+    const preferenceStorage = {
+      getItem: () => storedValue,
+      setItem: (_key: string, value: string) => { storedValue = value; },
+    };
+    const initial = productionPlayback({ sessionId: "observe-session", sourceIdentity: "video:observed", positionSeconds: 12 });
+    const view = render(<LanguageProvider><VideoPlayerPrototype displayName="Observed Fixture" resolution="640 × 360" durationLabel="2 min" playback={initial} preferenceStorage={preferenceStorage} /></LanguageProvider>);
+    view.rerender(<LanguageProvider><VideoPlayerPrototype
+      displayName="Observed Fixture"
+      resolution="640 × 360"
+      durationLabel="2 min"
+      preferenceStorage={preferenceStorage}
+      playback={productionPlayback({
+        ...initial,
+        paused: false,
+        loopASeconds: 8,
+        loopBSeconds: 28,
+        loopEnabled: true,
+        activeSubtitleId: 4,
+      })}
+    /></LanguageProvider>);
+    act(() => vi.advanceTimersByTime(1000));
+    const stored = JSON.parse(String(storedValue));
+    expect(stored.sources["video:observed"]).toMatchObject({
+      loopEnabled: true,
+      loopASeconds: 8,
+      loopBSeconds: 28,
+      subtitlesEnabled: true,
+      subtitleTrackId: 4,
+      positionSeconds: 12,
+    });
+    expect(stored.playback).not.toHaveProperty("paused");
   });
 
   it("cycles mock playback and the exact compact seek steps", () => {
@@ -191,7 +427,8 @@ describe("VideoPlayerPrototype", () => {
     );
     expect(activeLoop).toHaveAttribute("data-loop-status", "on");
     const editor = screen.getByTestId("loop-inline-editor");
-    expect(screen.getByTestId("transport-row")).toHaveClass("h-9");
+    expect(screen.getByTestId("transport-row")).toHaveClass("flex-wrap");
+    expect(screen.getByTestId("transport-row")).not.toHaveClass("overflow-hidden");
     expect(editor).toHaveClass("h-9", "overflow-hidden");
     expect(editor).not.toHaveClass("overflow-x-auto");
     fireEvent.click(screen.getByRole("button", { name: /Start/ }));
@@ -238,7 +475,7 @@ describe("VideoPlayerPrototype", () => {
     expect(screen.getByLabelText("Mock volume")).toHaveValue("72");
   });
 
-  it("uses one unclipped Settings panel with Back and two-stage Escape navigation", () => {
+  it("uses one unclipped Settings panel and dismisses its complete hierarchy with Escape", () => {
     renderPlayer();
     const trigger = screen.getByLabelText("Player settings");
     fireEvent.click(trigger);
@@ -256,6 +493,7 @@ describe("VideoPlayerPrototype", () => {
     ].forEach((label) => {
       expect(within(menu).getByRole("menuitem", { name: label })).toBeInTheDocument();
     });
+    expect(within(menu).queryByRole("menuitem", { name: "Subtitle appearance" })).not.toBeInTheDocument();
     const speedEntry = within(menu).getByRole("menuitem", { name: "Playback Speed" });
     fireEvent.click(speedEntry);
     expect(menu).toHaveAttribute("data-settings-view", "playback-speed");
@@ -269,40 +507,176 @@ describe("VideoPlayerPrototype", () => {
     expect(within(menu).getByRole("menuitemradio", { name: "1.5x" })).toHaveAttribute("aria-checked", "true");
 
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(menu).toHaveAttribute("data-settings-view", "root");
-    expect(within(menu).getByRole("menuitem", { name: "Playback Speed" })).toHaveFocus();
-    fireEvent.click(within(menu).getByRole("menuitem", { name: "Subtitle / CC" }));
-    expect(menu).toHaveAttribute("data-settings-view", "subtitle");
-    expect(within(menu).queryByRole("menuitem", { name: "Playback Speed" })).not.toBeInTheDocument();
-    expect(within(menu).getByRole("menuitem", { name: "Back: Subtitle / CC" })).toHaveFocus();
-    ["Off", "Embedded Track 1", "Load .SRT..."].forEach((subtitle) => {
-      expect(within(menu).getByRole("menuitemradio", { name: subtitle })).toBeInTheDocument();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    const subtitleMenu = screen.getByRole("menu");
+    fireEvent.click(within(subtitleMenu).getByRole("menuitem", { name: "Subtitle / CC" }));
+    expect(subtitleMenu).toHaveAttribute("data-settings-view", "subtitle");
+    expect(within(subtitleMenu).queryByRole("menuitem", { name: "Playback Speed" })).not.toBeInTheDocument();
+    expect(within(subtitleMenu).getByRole("menuitem", { name: "Back: Subtitle / CC" })).toHaveFocus();
+    ["Off", "Embedded Track 1", "Load Subtitle File…"].forEach((subtitle) => {
+      expect(within(subtitleMenu).getByRole("menuitemradio", { name: subtitle })).toBeInTheDocument();
     });
-    fireEvent.click(within(menu).getByRole("menuitemradio", { name: "Embedded Track 1" }));
-    expect(within(menu).getByRole("menuitemradio", { name: "Embedded Track 1" })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(within(menu).getByRole("menuitem", { name: "Back: Subtitle / CC" }));
-    expect(menu).toHaveAttribute("data-settings-view", "root");
-    expect(within(menu).getByRole("menuitem", { name: "Subtitle / CC" })).toHaveFocus();
-    expect(within(menu).getByRole("menuitem", { name: "Sheet / Thumbnail" })).toBeDisabled();
-    expect(within(menu).getByRole("menuitem", { name: "Open Externally" })).toBeDisabled();
+    expect(within(subtitleMenu).getByRole("menuitem", { name: "Subtitle appearance" })).toBeInTheDocument();
+    fireEvent.click(within(subtitleMenu).getByRole("menuitemradio", { name: "Embedded Track 1" }));
+    expect(within(subtitleMenu).getByRole("menuitemradio", { name: "Embedded Track 1" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(within(subtitleMenu).getByRole("menuitem", { name: "Back: Subtitle / CC" }));
+    expect(subtitleMenu).toHaveAttribute("data-settings-view", "root");
+    expect(within(subtitleMenu).getByRole("menuitem", { name: "Subtitle / CC" })).toHaveFocus();
+    expect(within(subtitleMenu).getByRole("menuitem", { name: "Sheet / Thumbnail" })).toBeDisabled();
+    expect(within(subtitleMenu).getByRole("menuitem", { name: "Open Externally" })).toBeDisabled();
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    expect(trigger).not.toHaveFocus();
     fireEvent.click(trigger);
-    const outsideControl = screen.getByLabelText("Play");
-    outsideControl.focus();
-    fireEvent.mouseDown(outsideControl);
+    fireEvent.click(screen.getByTestId("player-settings-dismiss-layer"));
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    expect(outsideControl).toHaveFocus();
   });
 
-  it("opens Shortcuts from the Settings root without retaining the popover", () => {
-    renderPlayer();
+  it("consumes outside-menu dismissal without toggling playback", () => {
+    const playback = productionPlayback({ paused: false });
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Dismiss Fixture" resolution="640 × 360" durationLabel="2 min" playback={playback} /></LanguageProvider>);
+    fireEvent.click(screen.getByLabelText("Player settings"));
+    fireEvent.click(screen.getByTestId("player-settings-dismiss-layer"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(playback.onPause).not.toHaveBeenCalled();
+    expect(playback.onPlay).not.toHaveBeenCalled();
+    expect(playback.onSeek).not.toHaveBeenCalled();
+  });
+
+  it("routes Shortcuts to its separate utility window without retaining the popover", () => {
+    const onOpenShortcuts = vi.fn();
+    const playback = productionPlayback({ onOpenShortcuts });
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Utility Fixture" resolution="640 × 360" durationLabel="2 min" playback={playback} /></LanguageProvider>);
     fireEvent.click(screen.getByLabelText("Player settings"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Shortcuts" }));
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onOpenShortcuts).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes Subtitle appearance to its separate utility window", () => {
+    const onOpenSubtitleAppearance = vi.fn();
+    const playback = productionPlayback({ onOpenSubtitleAppearance });
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Utility Fixture" resolution="640 × 360" durationLabel="2 min" playback={playback} /></LanguageProvider>);
+    fireEvent.click(screen.getByLabelText("Player settings"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Subtitle / CC" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Subtitle appearance" }));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onOpenSubtitleAppearance).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the Subtitle utility as a readable translucent standalone surface", () => {
+    const onClose = vi.fn();
+    render(
+      <LanguageProvider>
+        <SubtitleSettingsDialog
+          value={VIDEO_PLAYER_SUBTITLE_DEFAULTS}
+          delay={0}
+          onChange={vi.fn()}
+          onDelayChange={vi.fn()}
+          onClose={onClose}
+        />
+      </LanguageProvider>,
+    );
+    const panel = screen.getByTestId("player-settings-panel");
+    expect(panel).toHaveAttribute("aria-modal", "false");
+    expect(panel).toHaveClass("h-screen", "bg-white/80", "dark:bg-slate-950/80", "backdrop-blur-xl");
+    expect(panel).not.toHaveClass("opacity-80", "p-3", "rounded-2xl");
+    expect(panel.querySelector("section[role=dialog]")).toBeNull();
+    expect(within(panel).getByLabelText("Font family").tagName).toBe("SELECT");
+    expect(within(panel).getByLabelText("Font family")).toHaveValue("");
+    expect(within(panel).getAllByText("Source / authored default")).toHaveLength(2);
+    expect(within(panel).getByLabelText("Base position")).toHaveValue("source");
+    expect(within(panel).getByLabelText("Vertical adjustment (0)")).toBeDisabled();
+    expect(panel.querySelector('[data-layout="landscape-two-column"]')).toHaveClass("md:grid-cols-2");
+    expect(within(panel).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps one persisted adjustment enabled across Bottom, Middle, and Top", () => {
+    const onChange = vi.fn();
+    const renderDialog = (basePosition: "source" | "bottom" | "middle" | "top") => (
+      <LanguageProvider>
+        <SubtitleSettingsDialog
+          value={{ ...VIDEO_PLAYER_SUBTITLE_DEFAULTS, basePosition, verticalAdjustment: 35 }}
+          delay={0}
+          onChange={onChange}
+          onDelayChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </LanguageProvider>
+    );
+    const view = render(renderDialog("bottom"));
+    const position = screen.getByLabelText("Base position");
+    expect(screen.getByLabelText("Vertical adjustment (35)")).toBeEnabled();
+    fireEvent.change(position, { target: { value: "middle" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      basePosition: "middle",
+      verticalAdjustment: 35,
+    }));
+    view.rerender(renderDialog("middle"));
+    expect(screen.getByLabelText("Vertical adjustment (35)")).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Base position"), { target: { value: "top" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      basePosition: "top",
+      verticalAdjustment: 35,
+    }));
+    view.rerender(renderDialog("top"));
+    expect(screen.getByLabelText("Vertical adjustment (35)")).toBeEnabled();
+    view.rerender(renderDialog("bottom"));
+    expect(screen.getByLabelText("Vertical adjustment (35)")).toBeEnabled();
+    view.rerender(renderDialog("source"));
+    expect(screen.getByLabelText("Vertical adjustment (35)")).toBeDisabled();
+  });
+
+  it("lets transport hide after opening the independent Shortcuts utility", () => {
+    vi.useFakeTimers();
+    const onOpenShortcuts = vi.fn();
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Utility Fixture" resolution="640 × 360" durationLabel="2 min" playback={productionPlayback({ onOpenShortcuts })} /></LanguageProvider>);
+    fireEvent.click(screen.getByLabelText("Player settings"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Shortcuts" }));
+    const controls = screen.getByLabelText("Video player controls");
+    act(() => vi.advanceTimersByTime(1500));
+    expect(onOpenShortcuts).toHaveBeenCalledTimes(1);
+    expect(controls).toHaveAttribute("aria-hidden", "true");
+    fireEvent.pointerMove(screen.getByLabelText("Sakurava Video Player"));
+    act(() => vi.advanceTimersByTime(1499));
+    expect(controls).toHaveAttribute("aria-hidden", "false");
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByLabelText("Video player controls")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("holds the complete Settings hierarchy past idle and resumes auto-hide after dismissal", () => {
+    vi.useFakeTimers();
+    const onOpenSubtitleAppearance = vi.fn();
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Lifecycle Fixture" resolution="640 × 360" durationLabel="2 min" playback={productionPlayback({ onOpenSubtitleAppearance })} /></LanguageProvider>);
+    const controls = screen.getByLabelText("Video player controls");
+    fireEvent.click(screen.getByLabelText("Player settings"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Playback Speed" }));
+    act(() => vi.advanceTimersByTime(3000));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(controls).toHaveAttribute("aria-hidden", "false");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1499));
+    expect(controls).toHaveAttribute("aria-hidden", "false");
+    act(() => vi.advanceTimersByTime(1));
+    expect(controls).toHaveAttribute("aria-hidden", "true");
+
+    fireEvent.pointerMove(screen.getByLabelText("Sakurava Video Player"));
+    fireEvent.click(screen.getByLabelText("Player settings"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Subtitle / CC" }));
+    act(() => vi.advanceTimersByTime(3000));
+    expect(screen.getByRole("menu")).toHaveAttribute("data-settings-view", "subtitle");
+    expect(controls).toHaveAttribute("aria-hidden", "false");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Subtitle appearance" }));
+    expect(onOpenSubtitleAppearance).toHaveBeenCalledTimes(1);
+    act(() => vi.advanceTimersByTime(1500));
+    expect(controls).toHaveAttribute("aria-hidden", "true");
   });
 
   it("keeps all four normal-width actions in the locked order", () => {
@@ -323,6 +697,19 @@ describe("VideoPlayerPrototype", () => {
     expect(actions.querySelector(".lucide-maximize")).toBeInTheDocument();
   });
 
+  it("hides the complete Main chrome atomically instead of exposing a timeline-only transition", () => {
+    vi.useFakeTimers();
+    render(<LanguageProvider><VideoPlayerPrototype displayName="Main Chrome Fixture" resolution="640 × 360" durationLabel="2 min" playback={productionPlayback()} /></LanguageProvider>);
+    const controls = screen.getByLabelText("Video player controls");
+    expect(controls).not.toHaveClass("translate-y-0", "translate-y-full");
+    act(() => vi.advanceTimersByTime(1500));
+    expect(controls).toHaveAttribute("aria-hidden", "true");
+    expect(controls).toHaveClass("opacity-0", "pointer-events-none");
+    expect(controls).not.toHaveClass("translate-y-full");
+    expect(screen.getByTestId("timeline-row")).toBeInTheDocument();
+    expect(screen.getByTestId("transport-row")).toBeInTheDocument();
+  });
+
   it("shows exactly eight capture-only shortcut defaults and normalizes keyboard input", () => {
     expect(Object.values(VIDEO_PLAYER_SHORTCUT_DEFAULTS)).toEqual([
       "Space",
@@ -335,9 +722,7 @@ describe("VideoPlayerPrototype", () => {
       "F",
     ]);
 
-    renderPlayer();
-    fireEvent.click(screen.getByLabelText("Player settings"));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Shortcuts" }));
+    renderShortcutDialog();
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).queryAllByRole("textbox")).toHaveLength(0);
     const captureFields = SHORTCUT_TEST_IDS.map((testId) => within(dialog).getByTestId(testId));
@@ -376,9 +761,7 @@ describe("VideoPlayerPrototype", () => {
   });
 
   it("captures only Middle Mouse and modifier combinations from supported mouse input", () => {
-    renderPlayer();
-    fireEvent.click(screen.getByLabelText("Player settings"));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Shortcuts" }));
+    renderShortcutDialog();
     const dialog = screen.getByRole("dialog");
     const backward = within(dialog).getByTestId("shortcut-capture-backward");
     fireEvent.click(backward);
@@ -400,9 +783,9 @@ describe("VideoPlayerPrototype", () => {
   });
 
   it("preserves conflict, Reset, Cancel, and canonical player-command behavior", () => {
-    renderPlayer();
-    fireEvent.click(screen.getByLabelText("Player settings"));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Shortcuts" }));
+    const onCancel = vi.fn();
+    const onSave = vi.fn();
+    const { view } = renderShortcutDialog(onSave, onCancel);
     let dialog = screen.getByRole("dialog");
     const backward = within(dialog).getByTestId("shortcut-capture-backward");
     fireEvent.click(backward);
@@ -419,8 +802,9 @@ describe("VideoPlayerPrototype", () => {
     fireEvent.click(changeStep);
     fireEvent.keyDown(changeStep, { key: "k", ctrlKey: true });
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    fireEvent.click(screen.getByLabelText("Player settings"));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Shortcuts" }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    view.unmount();
+    renderShortcutDialog(onSave, onCancel);
     dialog = screen.getByRole("dialog");
     expect(within(dialog).getByTestId("shortcut-capture-changeStep")).toHaveTextContent("S");
 
@@ -430,13 +814,11 @@ describe("VideoPlayerPrototype", () => {
     const loop = within(dialog).getByTestId("shortcut-capture-loop");
     fireEvent.click(loop);
     fireEvent.keyDown(loop, { key: "l" });
-    expect(screen.getByRole("button", { name: "Loop Off" })).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-
-    fireEvent.keyDown(window, { key: "k" });
-    expect(screen.getByLabelText("Play")).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
-    expect(screen.getByLabelText("Pause")).toHaveAttribute("aria-pressed", "true");
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      playPause: "Ctrl+K",
+      loop: "L",
+    }));
   });
 
   it("opens the real Mini window seam without changing the main player toolbar", () => {
@@ -445,7 +827,7 @@ describe("VideoPlayerPrototype", () => {
     renderPlayer();
     const root = screen.getByLabelText("Sakurava Video Player");
     expect(root).not.toHaveAttribute("data-player-mode");
-    expect(root).toHaveAttribute("data-responsive-tiers", "normal compact minimum");
+    expect(root).toHaveAttribute("data-responsive-tiers", "main-full-functionality");
 
     fireEvent.click(screen.getByLabelText("Enter Mini Player mode"));
     expect(openMini).toHaveBeenCalledWith({
@@ -545,13 +927,13 @@ describe("VideoPlayerPrototype", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Playback Speed" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "3x" }));
     expect(playback.onSetSpeed).toHaveBeenCalledWith(3);
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Back: Playback Speed" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Subtitle / CC" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Embedded Track 1" }));
     expect(playback.onSetSubtitleTrack).toHaveBeenCalledWith(4);
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Load .SRT..." }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Load Subtitle File…" }));
     expect(playback.onLoadExternalSubtitle).toHaveBeenCalledTimes(1);
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Back: Subtitle / CC" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Open Externally" }));
     expect(playback.onOpenExternally).toHaveBeenCalledTimes(1);
 
