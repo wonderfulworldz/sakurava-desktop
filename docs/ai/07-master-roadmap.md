@@ -1,5 +1,43 @@
 # Sakurava Master Roadmap
 
+## Video Player Corrective Package Closure Roadmap — 2026-09-21
+
+This is the newest roadmap authority for Video Player continuation. Older
+conflicting corrective sequencing below is historical.
+
+video_player_corrective_package: COMPLETE_AND_DELIVERED
+application_delivery_commit: f8357e06f2e4f590b19649f96fa3fff5c3d311d2
+webview_startup_correction: COMPLETE_AND_ACCEPTED
+first_open_full_controls_correction: COMPLETE_AND_ACCEPTED
+middle_rendered_geometry_correction: COMPLETE_ACCEPTED_AND_DURABLE
+contact_sheet_material: ACCEPTED_BY_OPERATOR
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_objective_3_status: READY_PENDING_SEPARATE_APPROVAL
+video_player_stage_4: DOES_NOT_EXIST
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+local_shell_webview_profile_finding: HIGH_PRIORITY_NON_BLOCKING_DEFERRED_SEPARATE_CORRECTIVE_WORK
+next_technical_action: VIDEO_PLAYER_OBJECTIVE_3
+next_technical_action_status: PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_APPROVAL
+
+The corrective sequence is complete: isolated WebView user-data ownership
+removes the synchronous environment-options collision; explicit post-aspect
+presentation synchronization removes stale first-open WebView bounds; Middle
+uses authoritative final mpv/libass geometry through a durable repository-owned
+mpv 0.41 patch/build/runtime workflow; and the Contact Sheet material has
+operator acceptance. The existing single renderer, one authoritative media
+session, DirectComposition, and CompositionController architecture remains the
+roadmap baseline.
+
+The next eligible Video Player work is Objective 3, but it remains
+`NOT_STARTED` and needs separate approval after Result Review and Project
+ChatGPT refresh. The Local-shell WebView profile finding is deferred to separate
+high-priority corrective work and does not block Objective 3 readiness. Batch
+42.9 remains blocked until its existing Video Player completion gate is
+satisfied. This roadmap update starts neither Objective 3 nor Batch 42.9 and
+grants no technical execution authority.
+
 ## Video Player Middle Architecture and Corrective-Gate Roadmap — 2026-09-13
 
 This is the newest roadmap authority for the open pre-Objective-3 corrective

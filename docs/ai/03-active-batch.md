@@ -1,5 +1,48 @@
 # Sakurava Active Batch
 
+## Video Player Corrective Package Closure — 2026-09-21
+
+This is the newest Active Batch authority. Older Video Player corrective
+contracts below are historical where they conflict with this section.
+
+application_delivery_commit: f8357e06f2e4f590b19649f96fa3fff5c3d311d2
+corrective_package: VIDEO_PLAYER_CORRECTIVE_PACKAGE_COMPLETE
+webview_startup_correction: COMPLETE_AND_ACCEPTED
+first_open_full_controls_correction: COMPLETE_AND_ACCEPTED
+middle_rendered_geometry_correction: COMPLETE_ACCEPTED_AND_DURABLE
+contact_sheet_material: ACCEPTED_BY_OPERATOR
+active_application_batch: NONE
+active_technical_video_player_stage: NONE
+video_player_stage_4: DOES_NOT_EXIST
+current_technical_application_permissions: NONE
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_objective_3_status: READY_PENDING_SEPARATE_APPROVAL
+local_shell_webview_profile_finding: HIGH_PRIORITY_NON_BLOCKING_DEFERRED_SEPARATE_CORRECTIVE_WORK
+batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+next_technical_action: VIDEO_PLAYER_OBJECTIVE_3
+next_technical_action_status: PENDING_PROJECT_CHATGPT_RESULT_REVIEW_REFRESH_AND_SEPARATE_APPROVAL
+
+The pre-Objective-3 corrective package is closed. Its accepted implementation
+owns isolated WebView environment data, explicit first-open presentation-bounds
+synchronization, authoritative mpv/libass rendered subtitle geometry through
+`sakurava-sub-rendered-geometry`, durable repository-owned mpv patch/build and
+runtime preparation, and the operator-accepted Contact Sheet material. The
+fixed `0.534` value is no longer the root Middle positioning mechanism. The
+mpv 0.41, single-renderer, one-session, CompositionController, and
+DirectComposition architecture remains preserved.
+
+The regular Local-shell WebView profile finding is `HIGH_PRIORITY` but does not
+block this closure; disposition is separate corrective work. Objective 3 is
+`NOT_STARTED` and only ready for a later separately approved execution after
+Result Review and Project ChatGPT refresh. Batch 42.9 remains blocked under its
+existing Video Player completion gate. No new product correction or technical
+execution is authorized by this closure.
+
 ## Video Player Middle Architecture and Current Corrective Gates — 2026-09-13
 
 This is the newest Active Batch authority. Older Video Player corrective

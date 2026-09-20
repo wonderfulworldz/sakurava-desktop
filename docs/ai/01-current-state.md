@@ -1,5 +1,53 @@
 # Sakurava Current State
 
+## Video Player Corrective Package Delivered — 2026-09-21
+
+This is the newest current-state authority. Older Video Player corrective
+sections below are historical where they conflict with this section.
+
+project: Sakurava Desktop
+repository: D:\sakurava-desktop
+branch: main
+application_delivery_commit: f8357e06f2e4f590b19649f96fa3fff5c3d311d2
+application_delivery_parent: 67c436d03f3dac5f2937b21973ccd3b9594abb84
+application_delivery_path_count: 33
+corrective_package: VIDEO_PLAYER_CORRECTIVE_PACKAGE_COMPLETE
+contact_sheet_material: CONTACT_SHEET_MATERIAL_ACCEPTED_BY_OPERATOR
+webview_startup_root_cause: WEBVIEW2_SHARED_UDF_WITH_MISMATCHED_ENVIRONMENT_OPTIONS
+webview_startup_correction: ISOLATED_MEDIA_HOST_WEBVIEW_USER_DATA_OWNERSHIP_ACCEPTED
+first_open_controls_root_cause: REENTRANT_WM_SIZE_DROPPED_DURING_MAIN_ASPECT_RECONCILIATION_CAUSING_STALE_WEBVIEW_BOUNDS
+first_open_controls_correction: EXPLICIT_POST_RECONCILIATION_RESIZE_PRESENTATION_SYNCHRONIZATION_ACCEPTED
+middle_rendered_geometry: ACTIVE_AND_DURABLY_OWNED
+middle_geometry_property: sakurava-sub-rendered-geometry
+middle_fixed_0_534_root_mechanism: REMOVED
+subtitle_renderer: SINGLE_MPV_0_41_LIBASS_RENDERER_PRESERVED
+video_player_objective_1: COMPLETE_AND_ACCEPTED
+video_player_objective_2: COMPLETE_AND_ACCEPTED
+video_player_objective_3: NOT_STARTED
+video_player_objective_3_status: READY_PENDING_SEPARATE_APPROVAL
+batch_42_9: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
+local_shell_webview_profile_finding: HIGH_PRIORITY_NON_BLOCKING_DEFERRED_SEPARATE_CORRECTIVE_WORK
+technical_application_permissions: NONE
+next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_BRAIN_REFRESH_THEN_SEPARATE_OBJECTIVE_3_APPROVAL
+
+`PROVEN_BY_STATIC_SOURCE` and accepted targeted verification establish that the
+corrective package preserves one authoritative Main/PiP media session, WebView2
+CompositionController, DirectComposition, mpv 0.41, and mpv/libass as the sole
+subtitle renderer. The synchronous startup conflict is removed through owned
+media-host WebView user-data directories. Main aspect reconciliation explicitly
+synchronizes presentation bounds after `SetWindowPos`, so full controls no
+longer depend on a later manual resize. Middle positioning consumes final
+rendered subtitle geometry through the read-only mpv property, and the tracked
+patch/build/runtime preparation workflow owns the custom engine without a Temp
+candidate dependency.
+
+`OBSERVED_BY_OPERATOR` records `CONTACT_SHEET_MATERIAL_PASS`; the Contact Sheet
+material is accepted without changing its workflow. The regular Local-shell
+WebView profile remains a `HIGH_PRIORITY`, non-blocking out-of-scope finding for
+separate corrective work. Objective 3 has not started and requires separate
+approval. Batch 42.9 remains blocked by the existing Video Player completion
+gate. This closure grants no further technical application permission.
+
 ## Video Player Middle Architecture and Current Corrective State — 2026-09-13
 
 This is the newest current-state authority. Older Video Player corrective
