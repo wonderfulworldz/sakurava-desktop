@@ -73,6 +73,35 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-22 — Batch 42.9 Interface Atlas Authorization Reconciled
+
+date: 2026-09-22
+session_type: PROJECT_OS_BATCH_42_9_INTERFACE_ATLAS_AUTHORIZATION_RECONCILIATION
+operator_decision: EXPLICIT_DOCUMENTATION_ONLY_INTERFACE_ATLAS_APPROVAL
+recorded_repository_baseline: 626d731beb80d6a2f35256d9fca886c8f03fcef3
+active_application_batch: BATCH_42_9_UI_UX_PLANNING
+current_approved_task: COMPLETE_FRONTEND_INTERFACE_ATLAS
+batch_42_9_status: ACTIVE_APPROVED_FOR_INTERFACE_ATLAS_PLANNING_TASK
+operator_approval_evidence: OBSERVED_BY_OPERATOR
+technical_permissions: STATIC_SOURCE_INSPECTION_AND_ONE_LOCAL_UNTRACKED_ATLAS_ARTIFACT_ONLY
+atlas_artifact: SAKURAVA-FRONTEND-INTERFACE-ATLAS.html
+atlas_artifact_status: PLANNING_REFERENCE_ONLY_MUST_REMAIN_UNTRACKED
+application_runtime_test_build_dependency_permissions: false
+batch_42_10_implementation_authorized: false
+next_action: COMPLETE_FRONTEND_INTERFACE_ATLAS
+
+`OBSERVED_BY_OPERATOR` replaces the former Batch 42.9 blocked state with an
+approved, narrow planning task. Codex may statically inspect tracked source to
+map user-facing frontend surfaces and create the single local untracked Atlas
+artifact. The task does not authorize application implementation, runtime,
+tests, builds, dependency or data work, live AppData, or Git delivery for the
+future Atlas. Video Player closure remains accepted. Image Cover is safe for
+current planning purposes by operator observation without a claimed root-cause
+correction. The next sequence is Atlas, Project ChatGPT redesign/prototype,
+operator review, design freeze, then separately approved Batch 42.10.
+
+---
+
 ## 2026-09-21 — Video Player Objective 3 Waived and Completion Gate Closed
 
 date: 2026-09-21
@@ -228,38 +257,6 @@ WebView CompositionController startup root-cause diagnostic; controls tracing
 and correction wait for reliable startup. Contact Sheet final material
 refinement remains pending. No technical execution, Objective 3, Batch 42.9,
 staging, commit, or push is authorized by this reconciliation.
-
----
-
-## 2026-09-09 — Meaningful-Boundary Project OS Maintenance Adopted
-
-date: 2026-09-09
-session_type: PROJECT_GOVERNANCE_MEANINGFUL_BOUNDARY_PROJECT_OS_MAINTENANCE
-operator_decision: EXPLICIT_PERMANENT_DOCUMENTATION_ONLY_GOVERNANCE_APPROVAL
-permanent_standard: MEANINGFUL_BOUNDARY_PROJECT_OS_MAINTENANCE
-project_os_role: AUTHORITY_AND_CONTINUITY_SYSTEM_NOT_PER_REVISION_ACTIVITY_LOG
-documentation_timing: PROPORTIONAL_CONSOLIDATION_AT_MEANINGFUL_BOUNDARY
-immediate_update_rule: PROJECT_OS_UPDATE_NOW_FOR_AUTHORITY_SAFETY_COMPATIBILITY_OR_HANDOFF_RISK
-deferred_update_rule: PROJECT_OS_UPDATE_DEFERRED_UNTIL_MEANINGFUL_BOUNDARY
-active_application_batch: NONE
-active_technical_video_player_stage: NONE
-technical_permissions: false
-next_action: PROJECT_CHATGPT_RESULT_REVIEW_MANUAL_SOURCE_REFRESH_THEN_RESUME_CURRENT_VIDEO_PLAYER_CORRECTIVE_PACKAGE
-
-`OBSERVED_BY_OPERATOR` recurring workflow friction showed that ordinary
-iterative refinement could trigger repeated Project OS commits, Brain exports,
-and manual Project ChatGPT source refreshes inside one corrective package. The
-operator permanently requires proportional maintenance: carry bounded approved
-refinements through Result Review and the next relevant prompt, then reconcile
-them once at the next meaningful boundary. Update canonical authority now when
-deferral could affect locks, architecture/ownership, data or compatibility,
-permissions/access, safety, an obsolete-conflict risk, or handoff continuity.
-This changes documentation timing only; approval, safety, evidence, Git, and
-Project OS authority rules remain intact.
-
-No application source, test, build, runtime, Video Player implementation, or
-application Git delivery is authorized by this governance update. The existing
-Video Player corrective WIP remains protected and unstaged.
 
 ---
 

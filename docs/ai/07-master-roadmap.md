@@ -1,5 +1,29 @@
 # Sakurava Master Roadmap
 
+## Batch 42.9 Interface Atlas Planning Roadmap — 2026-09-22
+
+This is the newest roadmap authority for Batch 42.9. Older conflicting Batch
+42.9 transition wording below is historical.
+
+operator_approval_evidence: OBSERVED_BY_OPERATOR
+batch_42_9_status: ACTIVE_APPROVED_FOR_INTERFACE_ATLAS_PLANNING_TASK
+batch_42_9_approved: true
+current_roadmap_action: COMPLETE_FRONTEND_INTERFACE_ATLAS
+authorized_output: SAKURAVA-FRONTEND-INTERFACE-ATLAS.html
+authorized_output_status: PLANNING_REFERENCE_ONLY_MUST_REMAIN_UNTRACKED
+batch_42_10_implementation_authorized: false
+runtime_tests_build_dependency_work_authorized: false
+next_roadmap_action: COMPLETE_FRONTEND_INTERFACE_ATLAS
+next_roadmap_action_status: APPROVED_ONE_SHOT_PLANNING_REFERENCE_TASK
+
+Batch 42.9 now authorizes bounded static inspection of tracked source and one
+local untracked Interface Atlas artifact only. The roadmap sequence remains:
+Interface Atlas, Project ChatGPT redesign/prototype, operator review, design
+freeze, then a separate Batch 42.10 implementation approval. This planning
+authorization does not reopen Video Player work, claim a Media Cover root-cause
+correction, or authorize application mutation, runtime, tests, builds,
+dependencies, data work, or future-Atlas Git delivery.
+
 ## Video Player Waiver Completion and Pre-42.9 Roadmap — 2026-09-21
 
 This is the newest roadmap authority for Video Player completion and the Batch

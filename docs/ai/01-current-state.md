@@ -1,5 +1,35 @@
 # Sakurava Current State
 
+## Batch 42.9 Interface Atlas Planning State — 2026-09-22
+
+This is the newest current-state authority. Older Batch 42.9 gate wording
+below is historical where it conflicts with this section.
+
+recorded_repository_baseline: 626d731beb80d6a2f35256d9fca886c8f03fcef3
+operator_approval_evidence: OBSERVED_BY_OPERATOR
+active_application_batch: BATCH_42_9_UI_UX_PLANNING
+current_approved_task: COMPLETE_FRONTEND_INTERFACE_ATLAS
+batch_42_9_authorized: true
+batch_42_9_status: ACTIVE_APPROVED_FOR_INTERFACE_ATLAS_PLANNING_TASK
+technical_application_permissions: INTERFACE_ATLAS_STATIC_SOURCE_INSPECTION_AND_ONE_LOCAL_UNTRACKED_ARTIFACT_ONLY
+atlas_output: SAKURAVA-FRONTEND-INTERFACE-ATLAS.html
+atlas_artifact_status: PLANNING_REFERENCE_ONLY_MUST_REMAIN_UNTRACKED
+application_implementation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+dependency_change_authorized: false
+live_appdata_authorized: false
+batch_42_10_implementation_authorized: false
+next_action: COMPLETE_FRONTEND_INTERFACE_ATLAS
+
+The approved task may inspect tracked source only as necessary to map current
+user-facing frontend surfaces and may create only the named untracked HTML
+planning reference. It does not authorize production frontend or backend
+mutation, runtime, tests, builds, data/schema/package work, Backup/Restore,
+Import/Export, Translation, Managed Media, migrations, or Git delivery for the
+future Atlas artifact. Image Cover is safe for current planning purposes by
+`OBSERVED_BY_OPERATOR`; no historical root-cause correction is asserted.
+
 ## Video Player Operator Waiver and Final Completion — 2026-09-21
 
 This is the newest current-state authority. Older Video Player completion-gate

@@ -1,5 +1,53 @@
 # Sakurava Active Batch
 
+## Batch 42.9 Interface Atlas Planning Authorization — 2026-09-22
+
+This is the newest Active Batch authority. Older Batch 42.9 gate wording below
+is historical where it conflicts with this section.
+
+recorded_repository_baseline: 626d731beb80d6a2f35256d9fca886c8f03fcef3
+operator_approval_evidence: OBSERVED_BY_OPERATOR
+previous_atlas_blocker_report: REPORTED_BY_CODEX
+active_application_batch: BATCH_42_9_UI_UX_PLANNING
+active_technical_task: COMPLETE_FRONTEND_INTERFACE_ATLAS
+batch_42_9_status: ACTIVE_APPROVED_FOR_INTERFACE_ATLAS_PLANNING_TASK
+batch_42_9_approved: true
+batch_42_9_video_player_blocker: CLEARED
+batch_42_9_historical_media_cover_blocker: NOT_CURRENT_FOR_PLANNING
+image_cover_planning_posture: SAFE_FOR_CURRENT_PLANNING_OBSERVED_BY_OPERATOR
+current_technical_application_permissions: INTERFACE_ATLAS_STATIC_SOURCE_INSPECTION_AND_ONE_LOCAL_UNTRACKED_ARTIFACT_ONLY
+atlas_output: SAKURAVA-FRONTEND-INTERFACE-ATLAS.html
+atlas_artifact_status: PLANNING_REFERENCE_ONLY_MUST_REMAIN_UNTRACKED
+application_implementation_authorized: false
+production_frontend_mutation_authorized: false
+rust_backend_mutation_authorized: false
+runtime_authorized: false
+tests_build_authorized: false
+dependency_change_authorized: false
+live_appdata_authorized: false
+data_schema_package_authorized: false
+backup_restore_import_export_execution_authorized: false
+translation_architecture_change_authorized: false
+managed_media_execution_authorized: false
+migration_authorized: false
+atlas_task_git_delivery_authorized: false
+batch_42_10_implementation_authorized: false
+next_action: COMPLETE_FRONTEND_INTERFACE_ATLAS
+next_action_status: APPROVED_ONE_SHOT_PLANNING_REFERENCE_TASK
+
+`OBSERVED_BY_OPERATOR` authorizes only bounded static inspection of current
+tracked source necessary to discover user-facing frontend surfaces and creation
+of the single local untracked Atlas artifact. The Atlas is a planning/design
+reference, not application implementation. It does not authorize runtime,
+tests, builds, dependency work, live AppData access, data work, or Git delivery
+for the future Atlas task.
+
+The intended sequence is Interface Atlas, Project ChatGPT redesign/prototype,
+operator review, design freeze, then separately approved Batch 42.10
+implementation. Existing Video Player closure remains accepted. Image Cover is
+safe for current planning purposes by `OBSERVED_BY_OPERATOR`; no historical
+root-cause correction is claimed by this authorization.
+
 ## Video Player Waiver Closure and Batch 42.9 Gate — 2026-09-21
 
 This is the newest Active Batch authority. Older Video Player completion-gate
