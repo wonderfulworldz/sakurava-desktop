@@ -2,6 +2,29 @@
 
 active_count: 15
 
+### FEEDBACK-2026-09-26-P0-CATALOG-INTEGRITY-RECOVERY — Catalog Reference and Restore Recovery
+
+date: 2026-09-26
+batch: P0_CATALOG_INTEGRITY_RECOVERY
+type: RESOLVED_PRODUCTION_INCIDENT
+status: RESOLVED
+evidence: MEASURED
+risk: HIGH
+placement: COMPLETED_P0_CATALOG_REFERENCE_RESTORE_CORRECTION
+
+Startup legacy Credit backfill could run after migration and create Credits
+without public R Refs. The live catalog had four such Credits with valid
+targets; an existing `rollback_started` Restore journal separately blocked
+Backup/recovery operations.
+
+The accepted correction moves backfill into the explicit transactional Credit
+reference migration and keeps ordinary reopen from repeating it. `MEASURED`
+live recovery completed the existing rollback, created a safety snapshot, and
+repaired the four existing Credit rows in place with valid R Refs, aliases, and
+counter updates. No record was deleted, replaced, merged, or reassigned.
+Focused reopen/idempotency proof and Backup History backend listing passed.
+This resolution covers catalog/reference/Restore/Backup-readiness paths only.
+
 ### FEEDBACK-2026-08-13-NOTIFICATION-HISTORY — Notification System / Notification History
 
 date: 2026-08-13
@@ -43,7 +66,7 @@ gap exists. The objective is fewer governance transactions without weaker
 safety, evidence, Git, Result Review, or refresh controls.
 
 ---
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 
 ## Active Feedback
 

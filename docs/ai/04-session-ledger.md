@@ -73,6 +73,34 @@ When the gap is long or repository state is uncertain, begin with a read-only st
 
 ---
 
+## 2026-09-26 — P0 Catalog Integrity Recovery Completed
+
+date: 2026-09-26
+session_type: P0_CATALOG_INTEGRITY_RESTORE_RECOVERY_AND_CLOSURE
+started_baseline: bb772d06ddafa48cef27ce4501bdb8e51fe510f3
+p0_result: P0_RECOVERY_COMPLETE_PRODUCT_READY_WITHIN_VERIFIED_SCOPE
+startup_backfill_correction: COMPLETE_AND_ACCEPTED
+restore_journal_initial_state: rollback_started
+restore_recovery: COMPLETED_BY_EXISTING_COORDINATOR
+live_reference_repair: FOUR_EXISTING_CREDITS_REPAIRED_IN_PLACE
+live_reference_status: MIGRATED
+backup_history_backend_diagnostic: PASSED
+manual_smoke_required: false
+next_action: REGENERATE_AND_REPLACE_PROJECT_CHATGPT_SOURCE_THEN_PROJECT_CHECKPOINT
+
+`PROVEN_BY_STATIC_SOURCE` established that startup legacy Credit backfill could
+run after migration and create Credits with blank R Refs. `MEASURED` recovery
+validated the active rollback artifacts, completed the rollback, created a
+SQLite-consistent safety snapshot, and repaired the four live rows in one
+transaction without deletion, replacement, merging, or reassignment. Final
+checks found no blank or duplicate R Refs, valid targets, migrated reference
+status, and a clear Restore journal. Focused tests prove no resurrection after
+Credit deletion or relationship removal across two reopens; clean reopens and
+repeat repair are idempotent. The acceptance covers these affected workflows,
+not unrelated product areas.
+
+---
+
 ## 2026-09-22 — Batch 42.9 Interface Atlas Authorization Reconciled
 
 date: 2026-09-22
@@ -208,55 +236,6 @@ Player, WebView, controls, mpv/Middle, Contact Sheet, batch, staging, commit, or
 push work is authorized or performed by this reconciliation. Project ChatGPT
 Result Review remains required before separate documentation delivery and Brain
 regeneration approval.
-
----
-
-## 2026-09-13 — Video Player Middle Architecture and Current Gates Reconciled
-
-date: 2026-09-13
-session_type: PROJECT_OS_VIDEO_PLAYER_MIDDLE_ARCHITECTURE_AND_CURRENT_CORRECTIVE_GATES_RECONCILIATION
-operator_decision: EXPLICIT_DOCUMENTATION_ONLY_ARCHITECTURE_RECONCILIATION
-project_os_update_timing: PROJECT_OS_UPDATE_NOW
-recorded_repository_head: bdc0289439924d9d4182b465798c257068f415ec
-recorded_divergence: 0_AHEAD_0_BEHIND
-recorded_staging: NONE
-recorded_tracked_wip: 42_MODIFIED_PATHS_27_VIDEO_PLAYER_15_UNRELATED_PROTECTED
-active_application_batch: NONE
-video_player_objective_1: COMPLETE_AND_ACCEPTED
-video_player_objective_2: COMPLETE_AND_ACCEPTED
-video_player_objective_3: NOT_STARTED
-corrective_gate: VIDEO_PLAYER_PRE_OBJECTIVE_3_OPERATOR_FEEDBACK_CORRECTIVE_GATE
-middle_0_534_status: CURRENT_PARTIAL_CALIBRATION_NOT_ROOT_FIX
-middle_architecture_direction: NARROW_MPV_GEOMETRY_BOUNDARY_EXTENSION_REQUIRED
-middle_engine_implementation_authorized: false
-first_open_controls_root_cause: UNKNOWN
-webview_startup_blocker: WEBVIEW_CONTROLLER_BEGIN_FAILED_HRESULT_0X8007139F_REPRODUCED
-next_technical_action: VIDEO_PLAYER_WEBVIEW_COMPOSITION_CONTROLLER_STARTUP_ROOT_CAUSE_DIAGNOSTIC
-next_action: PROJECT_CHATGPT_RESULT_REVIEW_THEN_SEPARATE_WEBVIEW_COMPOSITION_CONTROLLER_STARTUP_DIAGNOSTIC_APPROVAL
-technical_permissions: false
-batch_42_9_gate: BATCH_42_9_REMAINS_BLOCKED_VIDEO_PLAYER_COMPLETION_REQUIRED
-
-`PROVEN_BY_STATIC_SOURCE` establishes that current movable Middle positioning
-controls renderer line/bottom-alignment semantics, so one fixed `sub-pos`
-cannot universally center final rendered blocks of different heights. The
-current `0.534` neutral remains a partial calibration. The accepted future
-direction is a narrowly scoped read-only mpv/libmpv boundary exposing
-authoritative subtitle bounds already computed by mpv/libass, without another
-parser, renderer, ASS rewrite, screenshot heuristic, or OCR. Existing semantic
-positioning, Vertical Adjustment, appearance behavior, and single-renderer
-architecture remain authoritative. Engine mutation requires later explicit
-approval.
-
-`OBSERVED_BY_OPERATOR` first-open Main timeline-only behavior remains invalid;
-visible Main controls must be full from first open, while PiP alone is compact.
-The controls owner is still `UNKNOWN`. Two `MEASURED` clean disposable starts
-failed before Player DOM creation at `CreateCoreWebView2CompositionController`
-with HRESULT `0x8007139F`. This is a reproducible diagnostic blocker, not a
-proven controls cause. The next separately gated technical action is a bounded
-WebView CompositionController startup root-cause diagnostic; controls tracing
-and correction wait for reliable startup. Contact Sheet final material
-refinement remains pending. No technical execution, Objective 3, Batch 42.9,
-staging, commit, or push is authorized by this reconciliation.
 
 ---
 

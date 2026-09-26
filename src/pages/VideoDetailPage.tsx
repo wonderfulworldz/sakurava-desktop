@@ -24,6 +24,7 @@ function VideoDetailPage() {
   const [config, setConfig] = useState<DetailConfig>(detailConfigs.videos);
   const [missing, setMissing] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [loadError, setLoadError] = useState<"recovery" | "failure" | null>(null);
   const [loading, setLoading] = useState(() =>
     Boolean(itemKey && isVideoRuntimeAvailable()),
   );
@@ -34,11 +35,13 @@ function VideoDetailPage() {
     if (!itemKey || !isVideoRuntimeAvailable()) {
       setConfig(detailConfigs.videos);
       setMissing(false);
+      setLoadError(null);
       setLoading(false);
       return;
     }
 
     setLoading(true);
+    setLoadError(null);
     getVideoVisible(itemKey)
       .then(async (result) => {
         if (cancelled) {
@@ -110,9 +113,15 @@ function VideoDetailPage() {
         );
         setLoading(false);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
-          setMissing(true);
+          const message = error instanceof Error ? error.message : String(error);
+          setLoadError(
+            message.includes("Catalog references need recovery") ||
+              message.includes("Catalog references must be upgraded")
+              ? "recovery"
+              : "failure",
+          );
           setLoading(false);
         }
       });
@@ -133,14 +142,20 @@ function VideoDetailPage() {
     );
   }
 
-  if (missing) {
+  if (missing || loadError) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
           {t("detail.videoTitle")}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          {hidden ? t("safeFilter.unavailable") : t("detail.videoMissing")}
+          {loadError === "recovery"
+            ? t("migration.ref.recoveryTitle")
+            : loadError === "failure"
+              ? t("detail.videoLoadFailed")
+              : hidden
+                ? t("safeFilter.unavailable")
+                : t("detail.videoMissing")}
         </p>
       </section>
     );

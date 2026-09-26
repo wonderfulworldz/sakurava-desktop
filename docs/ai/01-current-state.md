@@ -1,5 +1,30 @@
 # Sakurava Current State
 
+## P0 Catalog Integrity Recovery Completed — 2026-09-26
+
+This records a completed P0 corrective package. It does not change the active
+Batch 42.9 Interface Atlas planning authority below.
+
+recorded_repository_baseline: bb772d06ddafa48cef27ce4501bdb8e51fe510f3
+p0_catalog_integrity_status: COMPLETED_AND_ACCEPTED
+startup_credit_backfill_correction: COMPLETE_AND_ACCEPTED
+live_restore_recovery: COMPLETED
+live_catalog_reference_status: MIGRATED
+live_credit_repair: FOUR_EXISTING_ROWS_REPAIRED_IN_PLACE
+backup_history_readiness: VERIFIED_BY_BACKEND_DIAGNOSTIC
+technical_scope: CATALOG_REFERENCE_RESTORE_AND_BACKUP_READINESS_ONLY
+manual_smoke_requirement: NONE_FOR_ACCEPTED_TECHNICAL_VERDICT
+next_action: COMPLETE_FRONTEND_INTERFACE_ATLAS
+
+`PROVEN_BY_STATIC_SOURCE` established that ordinary startup could rerun legacy
+Credit backfill after migration and create blank public R Refs. `MEASURED` live
+recovery completed the existing Restore rollback, preserved 118 Videos and 13
+Credits, repaired four existing blank-R Credit rows without deletion or
+reassignment, and restored migrated reference health. Focused regression proof
+covered repeat repair, clean reopen, legacy migration, and deleted Credit and
+relationship non-resurrection. This is not certification of unrelated product
+areas.
+
 ## Batch 42.9 Interface Atlas Planning State — 2026-09-22
 
 This is the newest current-state authority. Older Batch 42.9 gate wording

@@ -1771,7 +1771,6 @@ pub fn initialize_schema(connection: &Connection) -> rusqlite::Result<()> {
     apply_safe_filter_schema_migration(connection)?;
     ensure_text_column(connection, "credits", "sakuravaRef", "")?;
     ensure_nullable_text_column(connection, "credits", "creditTypeText")?;
-    backfill_legacy_credits(connection)?;
 
     // Only a genuinely fresh database receives identity infrastructure here.
     // Existing legacy or partial databases remain untouched so the
@@ -3106,7 +3105,9 @@ fn migrate_credit_sakurava_ref_connection(
         .and_then(|_| migrate_credit_type_text_in_transaction(&transaction))
         .and_then(|_| validate_sakurava_ref_schema(&transaction))
         .and_then(|_| validate_sakurava_ref_counters(&transaction))
-        .and_then(|_| validate_sakurava_ref_aliases_complete(&transaction));
+        .and_then(|_| validate_sakurava_ref_aliases_complete(&transaction))
+        .and_then(|_| validate_identity_preconditions(&transaction).map(|issues| issues.first().cloned()))
+        .and_then(|issue| issue.map_or(Ok(()), Err));
     if let Err(error) = result {
         let _ = transaction.rollback();
         return Err(format!(
@@ -3128,6 +3129,10 @@ fn migrate_credit_sakurava_refs_in_transaction(
             .map_err(|error| format!("Unable to add Credit reference storage: {error}"))?;
     }
     create_sakurava_ref_ledger_tables(connection).map_err(|error| error.to_string())?;
+    if !credit_sakurava_ref_migration_is_applied(connection)? {
+        backfill_legacy_credits(connection)
+            .map_err(|error| format!("Unable to migrate legacy Credits: {error}"))?;
+    }
     let mut statement = connection
         .prepare("SELECT id, createdAt, sakuravaRef FROM credits ORDER BY id COLLATE BINARY ASC")
         .map_err(|error| error.to_string())?;
@@ -5931,12 +5936,206 @@ mod tests {
         let _ = fs::remove_dir_all(&app_data_dir);
 
         let first = prepare_database(&app_data_dir).expect("first init");
+        let credit_state = {
+            let connection = first.connection();
+            let connection = connection.lock().expect("connection");
+            (
+                connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get::<_, i64>(0)).expect("Credits"),
+                connection.query_row("SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'R'", [], |row| row.get::<_, i64>(0)).expect("Credit aliases"),
+                connection.query_row("SELECT COUNT(*) FROM sakuravaRefCounters WHERE sectionCode = 'R'", [], |row| row.get::<_, i64>(0)).expect("Credit counters"),
+            )
+        };
         drop(first);
-        let second = prepare_database(&app_data_dir).expect("second init");
-
-        assert!(second.paths.database_file.is_file());
+        for _ in 0..2 {
+            let reopened = prepare_database(&app_data_dir).expect("repeat init");
+            assert!(reopened.paths.database_file.is_file());
+            let connection = reopened.connection();
+            let connection = connection.lock().expect("connection");
+            let reopened_state = (
+                connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get::<_, i64>(0)).expect("Credits"),
+                connection.query_row("SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'R'", [], |row| row.get::<_, i64>(0)).expect("Credit aliases"),
+                connection.query_row("SELECT COUNT(*) FROM sakuravaRefCounters WHERE sectionCode = 'R'", [], |row| row.get::<_, i64>(0)).expect("Credit counters"),
+            );
+            assert_eq!(reopened_state, credit_state);
+            require_migrated_sakurava_refs(&connection).expect("clean reference health");
+        }
 
         let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn migrated_relationship_and_deleted_credit_stay_unchanged_on_reopen() {
+        let app_data_dir = unique_test_dir("credit-reopen").join(APP_DATA_FOLDER_NAME);
+        let database = prepare_database(&app_data_dir).expect("fresh database");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("connection");
+            let video_ref = allocate_sakurava_ref(&connection, "V", "2609").expect("video ref");
+            connection.execute(
+                "INSERT INTO videos (id, sakuravaRef, title, relatedPerformersJson, createdAt, updatedAt)
+                 VALUES ('video-reopen', ?1, 'Video', '[{\"performerId\":\"performer-reopen\"}]', '1', '1')",
+                [&video_ref],
+            ).expect("video relation");
+            register_current_sakurava_ref_alias(&connection, "V", &video_ref).expect("video alias");
+            let performer_ref = allocate_sakurava_ref(&connection, "P", "2609").expect("performer ref");
+            connection.execute(
+                "INSERT INTO performers (id, sakuravaRef, name, createdAt, updatedAt)
+                 VALUES ('performer-reopen', ?1, 'Performer', '1', '1')",
+                [&performer_ref],
+            ).expect("performer");
+            register_current_sakurava_ref_alias(&connection, "P", &performer_ref).expect("performer alias");
+            require_migrated_sakurava_refs(&connection).expect("valid after Form-equivalent relation");
+        }
+        drop(database);
+
+        for _ in 0..2 {
+            let database = prepare_database(&app_data_dir).expect("reopen relationship");
+            let connection = database.connection();
+            let connection = connection.lock().expect("connection");
+            let count: i64 = connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0)).expect("credits");
+            assert_eq!(count, 0);
+            require_migrated_sakurava_refs(&connection).expect("valid after relationship reopen");
+        }
+
+        let database = prepare_database(&app_data_dir).expect("create and delete Credit");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("connection");
+            let count: i64 = connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0)).expect("credits");
+            assert_eq!(count, 0);
+            require_migrated_sakurava_refs(&connection).expect("valid after reopen");
+            let credit_ref = allocate_sakurava_ref(&connection, "R", "2609").expect("credit ref");
+            connection.execute(
+                "INSERT INTO credits (id, sakuravaRef, workType, workId, performerId, characterName, createdAt, updatedAt)
+                 VALUES ('credit-reopen', ?1, 'video', 'video-reopen', 'performer-reopen', 'Role', '1', '1')",
+                [&credit_ref],
+            ).expect("credit");
+            register_credit_aliases(&connection, "credit-reopen", &credit_ref).expect("credit aliases");
+            connection.execute("DELETE FROM credits WHERE id = 'credit-reopen'", []).expect("credit delete");
+        }
+        drop(database);
+
+        for _ in 0..2 {
+            let database = prepare_database(&app_data_dir).expect("reopen after Credit delete");
+            let connection = database.connection();
+            let connection = connection.lock().expect("connection");
+            let count: i64 = connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0)).expect("credits");
+            assert_eq!(count, 0);
+            require_migrated_sakurava_refs(&connection).expect("deleted Credit is not recreated");
+            let high_water: i64 = connection.query_row(
+                "SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = 'R' AND issuanceYymm = '2609'",
+                [], |row| row.get(0),
+            ).expect("high water");
+            assert_eq!(high_water, 1);
+        }
+
+        let database = prepare_database(&app_data_dir).expect("remove relationship");
+        {
+            let connection = database.connection();
+            let connection = connection.lock().expect("connection");
+            connection.execute(
+                "UPDATE videos SET relatedPerformersJson = '[]' WHERE id = 'video-reopen'",
+                [],
+            ).expect("remove relation");
+        }
+        drop(database);
+        for _ in 0..2 {
+            let database = prepare_database(&app_data_dir).expect("reopen after relationship removal");
+            let connection = database.connection();
+            let connection = connection.lock().expect("connection");
+            let (relation, count): (String, i64) = connection.query_row(
+                "SELECT relatedPerformersJson, (SELECT COUNT(*) FROM credits) FROM videos WHERE id = 'video-reopen'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            ).expect("removed relation persists");
+            assert_eq!(relation, "[]");
+            assert_eq!(count, 0);
+            require_migrated_sakurava_refs(&connection).expect("valid after relationship removal");
+        }
+        let _ = fs::remove_dir_all(app_data_dir);
+    }
+
+    #[test]
+    fn eligible_legacy_credit_migration_backfills_with_refs_only_once() {
+        let mut connection = complete_current_identity_fixture();
+        connection.execute("DELETE FROM credits", []).expect("legacy starts without Credits");
+        connection.execute("DELETE FROM sakuravaRefAliases WHERE sectionCode = 'R'", []).expect("clear Credit aliases");
+        connection.execute("DELETE FROM sakuravaRefCounters WHERE sectionCode = 'R'", []).expect("clear Credit counter");
+        connection.execute("DELETE FROM schemaMigrations WHERE migrationId = ?1", [CREDIT_SAKURAVA_REF_MIGRATION_ID]).expect("legacy ledger");
+        connection.execute_batch("DROP INDEX idx_credits_sakurava_ref").expect("legacy index");
+        connection.execute(
+            "UPDATE videos SET relatedPerformersJson = '[{\"performerId\":\"performer-current\"}]' WHERE id = 'video-current'",
+            [],
+        ).expect("legacy projection");
+
+        initialize_schema(&connection).expect("ordinary reopen");
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get::<_, i64>(0)).expect("credits"), 0);
+        assert_eq!(classify_sakurava_ref_migration_state(&connection).expect("legacy state"), SakuravaRefMigrationState::Legacy);
+
+        migrate_credit_sakurava_ref_connection(&mut connection, "2609").expect("explicit Credit migration");
+        require_migrated_sakurava_refs(&connection).expect("valid migrated catalog");
+        let reference: String = connection.query_row("SELECT sakuravaRef FROM credits", [], |row| row.get(0)).expect("migrated Credit");
+        assert!(valid_credit_sakurava_ref(&reference));
+        let aliases: i64 = connection.query_row(
+            "SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'R' AND sakuravaRef = ?1",
+            [&reference], |row| row.get(0),
+        ).expect("aliases");
+        assert_eq!(aliases, 2);
+        let high_water: i64 = connection.query_row(
+            "SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = 'R' AND issuanceYymm = '2609'",
+            [], |row| row.get(0),
+        ).expect("high water");
+        initialize_schema(&connection).expect("repeat reopen");
+        initialize_schema(&connection).expect("another reopen");
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get::<_, i64>(0)).expect("Credits"), 1);
+        assert_eq!(connection.query_row("SELECT sakuravaRef FROM credits", [], |row| row.get::<_, String>(0)).expect("stable Ref"), reference);
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'R'", [], |row| row.get::<_, i64>(0)).expect("stable aliases"), aliases);
+        assert_eq!(connection.query_row("SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = 'R' AND issuanceYymm = '2609'", [], |row| row.get::<_, i64>(0)).expect("stable high water"), high_water);
+        require_migrated_sakurava_refs(&connection).expect("still valid");
+    }
+
+    #[test]
+    fn blank_credit_ref_fixture_is_detected_and_repaired_atomically() {
+        let mut connection = complete_current_identity_fixture();
+        connection.execute(
+            "INSERT INTO credits (id, workType, workId, performerId, characterName, createdAt, updatedAt)
+             VALUES ('credit-damaged', 'video', 'video-current', 'performer-current', 'Role', '1', '1')",
+            [],
+        ).expect("damaged Credit");
+        assert_eq!(classify_sakurava_ref_migration_state(&connection).expect("status"), SakuravaRefMigrationState::Invalid);
+        let original_ref: String = connection.query_row("SELECT sakuravaRef FROM credits WHERE id = 'credit-current'", [], |row| row.get(0)).expect("original Ref");
+        migrate_credit_sakurava_ref_connection(&mut connection, "2609").expect("deterministic repair path");
+        require_migrated_sakurava_refs(&connection).expect("repaired catalog");
+        let repaired_ref: String = connection.query_row("SELECT sakuravaRef FROM credits WHERE id = 'credit-damaged'", [], |row| row.get(0)).expect("repaired Ref");
+        assert!(valid_credit_sakurava_ref(&repaired_ref));
+        assert_eq!(connection.query_row("SELECT sakuravaRef FROM credits WHERE id = 'credit-current'", [], |row| row.get::<_, String>(0)).expect("original Ref"), original_ref);
+        let aliases: i64 = connection.query_row("SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'R' AND sakuravaRef = ?1", [&repaired_ref], |row| row.get(0)).expect("aliases");
+        assert_eq!(aliases, 2);
+        let high_water: i64 = connection.query_row("SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = 'R' AND issuanceYymm = '2609'", [], |row| row.get(0)).expect("high water");
+        migrate_credit_sakurava_ref_connection(&mut connection, "2609").expect("repeat repair");
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get::<_, i64>(0)).expect("stable Credit count"), 2);
+        assert_eq!(connection.query_row("SELECT sakuravaRef FROM credits WHERE id = 'credit-damaged'", [], |row| row.get::<_, String>(0)).expect("stable repaired Ref"), repaired_ref);
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM sakuravaRefAliases WHERE sectionCode = 'R' AND sakuravaRef = ?1", [&repaired_ref], |row| row.get::<_, i64>(0)).expect("stable aliases"), aliases);
+        assert_eq!(connection.query_row("SELECT lastSequence FROM sakuravaRefCounters WHERE sectionCode = 'R' AND issuanceYymm = '2609'", [], |row| row.get::<_, i64>(0)).expect("stable high water"), high_water);
+    }
+
+    #[test]
+    fn legacy_credit_backfill_rolls_back_when_relationship_target_is_missing() {
+        let mut connection = complete_current_identity_fixture();
+        connection.execute("DELETE FROM credits", []).expect("remove current Credit");
+        connection.execute("DELETE FROM sakuravaRefAliases WHERE sectionCode = 'R'", []).expect("clear Credit aliases");
+        connection.execute("DELETE FROM sakuravaRefCounters WHERE sectionCode = 'R'", []).expect("clear Credit counter");
+        connection.execute("DELETE FROM schemaMigrations WHERE migrationId = ?1", [CREDIT_SAKURAVA_REF_MIGRATION_ID]).expect("legacy ledger");
+        connection.execute_batch("DROP INDEX idx_credits_sakurava_ref").expect("legacy index");
+        connection.execute(
+            "UPDATE videos SET relatedPerformersJson = '[{\"performerId\":\"missing-performer\"}]' WHERE id = 'video-current'",
+            [],
+        ).expect("broken legacy relation");
+
+        assert!(migrate_credit_sakurava_ref_connection(&mut connection, "2609").is_err());
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM credits", [], |row| row.get::<_, i64>(0)).expect("Credits"), 0);
+        assert_eq!(connection.query_row("SELECT COUNT(*) FROM sakuravaRefCounters WHERE sectionCode = 'R'", [], |row| row.get::<_, i64>(0)).expect("counter"), 0);
+        assert!(!credit_sakurava_ref_migration_is_applied(&connection).expect("ledger"));
     }
 
     #[test]
@@ -5968,8 +6167,8 @@ mod tests {
             )
             .expect("performer");
 
-        initialize_schema(&connection).expect("backfill");
-        initialize_schema(&connection).expect("repeat backfill");
+        backfill_legacy_credits(&connection).expect("backfill");
+        backfill_legacy_credits(&connection).expect("repeat backfill");
 
         let credits: Vec<(String, String, String, i64)> = connection
             .prepare(
@@ -6023,7 +6222,7 @@ mod tests {
                 [],
             )
             .expect("invalid legacy json");
-        initialize_schema(&connection).expect("invalid json is safe");
+        backfill_legacy_credits(&connection).expect("invalid json is safe");
         let count: i64 = connection
             .query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0))
             .expect("credit count");
@@ -6078,8 +6277,8 @@ mod tests {
             )
             .expect("existing manual-style collision");
 
-        initialize_schema(&connection).expect("collision-safe backfill");
-        initialize_schema(&connection).expect("repeat collision-safe backfill");
+        backfill_legacy_credits(&connection).expect("collision-safe backfill");
+        backfill_legacy_credits(&connection).expect("repeat collision-safe backfill");
 
         let count: i64 = connection
             .query_row("SELECT COUNT(*) FROM credits", [], |row| row.get(0))

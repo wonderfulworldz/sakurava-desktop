@@ -663,6 +663,7 @@ const englishDictionary: TranslationDictionary = {
   "detail.imageSubtitle": "View a local image catalog item",
   "detail.performerSubtitle": "View profile, catalog summary, and personal notes",
   "detail.videoMissing": "This video could not be found.",
+  "detail.videoLoadFailed": "This video could not be loaded.",
   "detail.imageMissing": "This image could not be found.",
   "detail.performerMissing": "This performer could not be found.",
   "detail.loadMore": "Load More",
